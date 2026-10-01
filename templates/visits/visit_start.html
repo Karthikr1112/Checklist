@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Start Visit{% endblock %}
+{% block crumb %}<a href="{% url 'visits:visit_list' %}">Visits</a> <i class="bi bi-chevron-right"></i> Start{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Start a New Visit</h1>
+    <p>Create a daily-update audit record for a store.</p>
+  </div>
+</div>
+<div class="card" style="max-width:640px">
+  <div class="card-body">
+    <form method="post" id="visitStartForm">
+      {% csrf_token %}
+
+      <!-- Store -->
+      <div class="form-group">
+        <label class="form-label" for="{{ form.store.id_for_label }}">{{ form.store.label }}</label>
+        {{ form.store }}
+        {% if form.store.errors %}<div class="form-error">{{ form.store.errors|striptags }}</div>{% endif %}
+      </div>
+
+      {% if user.is_admin_role %}
+        <!-- For Admin: Department & Marketing Role selection -->
+        <div id="template_selection_row" class="grid gap-3" style="display: grid; grid-template-columns: 1fr; margin-bottom: 16px;">
+          <div>
+            <label class="form-label" for="{{ form.department.id_for_label }}">{{ form.department.label }}</label>
+            {{ form.department }}
+            {% if form.department.errors %}<div class="form-error">{{ form.department.errors|striptags }}</div>{% endif %}
+          </div>
+
+          <div id="marketing_role_col" style="display: none;">
+            <label class="form-label" for="{{ form.marketing_role.id_for_label }}">
+              <i class="bi bi-award text-brand"></i> {{ form.marketing_role.label }}
+            </label>
+            {{ form.marketing_role }}
+            {% if form.marketing_role.errors %}<div class="form-error">{{ form.marketing_role.errors|striptags }}</div>{% endif %}
+          </div>
+        </div>
+      {% else %}
+        <!-- For normal users: locked checklist display -->
+        <div class="alert alert-info" style="display:flex; align-items:center; gap:12px; margin-bottom:18px; padding:12px 16px;">
+          <i class="bi bi-clipboard-check text-brand" style="font-size:22px;"></i>
+          <div>
+            <div style="font-size:11px; font-weight:600; color:var(--gray-500); text-transform:uppercase; letter-spacing:0.04em;">Assigned Checklist</div>
+            <strong style="color:var(--gray-900); font-size:14px;">
+              {% if user.is_marketing_team %}
+                Marketing Team — {{ user.marketing_role }}
+              {% elif user.is_inventory_team %}
+                Inventory Team Daily Checklist
+              {% else %}
+                Cluster Manager Store Visit
+              {% endif %}
+            </strong>
+          </div>
+        </div>
+        {{ form.department }}
+        {{ form.marketing_role }}
+      {% endif %}
+
+      <!-- Date & Audit Type (2 columns) -->
+      <div class="grid gap-3" style="display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 16px;">
+        <div>
+          <label class="form-label" for="{{ form.visit_date.id_for_label }}">{{ form.visit_date.label }}</label>
+          {{ form.visit_date }}
+          {% if form.visit_date.errors %}<div class="form-error">{{ form.visit_date.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div>
+          <label class="form-label" for="{{ form.audit_type.id_for_label }}">{{ form.audit_type.label }}</label>
+          {{ form.audit_type }}
+          {% if form.audit_type.errors %}<div class="form-error">{{ form.audit_type.errors|striptags }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-4">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-play-fill"></i> Start Visit</button>
+        <a href="{% url 'visits:visit_list' %}" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const deptSelect = document.getElementById("id_department");
+  const roleCol = document.getElementById("marketing_role_col");
+  const roleSelect = document.getElementById("id_marketing_role");
+  const templateRow = document.getElementById("template_selection_row");
+
+  function updateLayout() {
+    if (!deptSelect || !roleCol || !templateRow) return;
+    const isMarketing = (deptSelect.value === "MARKETING_TEAM");
+
+    if (isMarketing) {
+      roleCol.style.display = "block";
+      templateRow.style.gridTemplateColumns = "1fr 1fr";
+      if (roleSelect) roleSelect.required = true;
+    } else {
+      roleCol.style.display = "none";
+      templateRow.style.gridTemplateColumns = "1fr";
+      if (roleSelect) {
+        roleSelect.required = false;
+      }
+    }
+  }
+
+  if (deptSelect) {
+    deptSelect.addEventListener("change", updateLayout);
+    updateLayout();
+  }
+});
+</script>
+{% endblock %}

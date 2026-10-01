@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block body %}
+<div class="auth-shell">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="logo" style="width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#4338ca);display:grid;place-items:center;color:#fff;font-size:18px"><i class="bi bi-clipboard-check"></i></span>
+      <span>Cluster Audit</span>
+    </div>
+    <h2 style="margin-bottom:4px">Welcome back</h2>
+    <p class="muted" style="margin-bottom:24px">Sign in with your StyleHR credentials to file your daily store updates.</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="form-group">
+        <label class="form-label">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<div class="form-error">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger"><i class="bi bi-exclamation-circle"></i><div>{{ form.non_field_errors|striptags }}</div></div>
+      {% endif %}
+      <button class="btn btn-primary btn-lg btn-block" type="submit">
+        <i class="bi bi-box-arrow-in-right"></i> Sign in
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

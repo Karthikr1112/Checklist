@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block crumb %}<a href="{% url 'accounts:user_list' %}">Users</a> <i class="bi bi-chevron-right"></i> Edit{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ title }}</h1>
+    <p>Update profile, role, and assigned stores.</p>
+  </div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+
+    <div class="card"><div class="card-body" style="padding:16px">
+      <h3 style="margin-top:0">Profile</h3>
+      {% for f in form %}
+        {% if f.name != 'stores' %}
+        <div class="form-group" {% if f.name == 'marketing_role' %}id="marketing_role_field" {% if target.role != 'MARKETING_TEAM' %}style="display:none;"{% endif %}{% endif %}>
+          <label class="form-label">{{ f.label }}</label>
+          {{ f }}
+          {% if f.help_text %}<div class="muted mt-1" style="font-size:12px;">{{ f.help_text }}</div>{% endif %}
+          {% if f.errors %}<div class="form-error">{{ f.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div></div>
+
+    <div class="card"><div class="card-body" style="padding:16px">
+      <h3 style="margin-top:0">Assigned Stores</h3>
+      <p class="muted" style="margin-top:0">
+        Stores listed below will be linked to this user based on their selected role
+        (Cluster Manager / Store Manager / Inventory Team / Marketing Team). Other roles ignore this list.
+      </p>
+      <div class="form-group">
+        {{ form.stores }}
+        {% if form.stores.errors %}<div class="form-error">{{ form.stores.errors|striptags }}</div>{% endif %}
+        <small class="muted">Hold Ctrl / Cmd to select multiple stores.</small>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="flex gap-2" style="margin-top:16px">
+    <button class="btn btn-primary" type="submit"><i class="bi bi-check2"></i> Save</button>
+    <a class="btn btn-ghost" href="{% url 'accounts:user_list' %}">Cancel</a>
+  </div>
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const roleSelect = document.querySelector('[name="role"]');
+  const mRoleField = document.getElementById("marketing_role_field");
+  function syncMarketing() {
+    if (!roleSelect || !mRoleField) return;
+    if (roleSelect.value === "MARKETING_TEAM") {
+      mRoleField.style.display = "block";
+    } else {
+      mRoleField.style.display = "none";
+    }
+  }
+  if (roleSelect) {
+    roleSelect.addEventListener("change", syncMarketing);
+    syncMarketing();
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block crumb %}Users{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Users</h1>
+    <p>People who can access Cluster Audit.
+      {% if pending_count %}
+        <span class="badge badge-warning badge-dot">{{ pending_count }} pending approval</span>
+      {% endif %}
+    </p>
+  </div>
+  <a class="btn btn-primary" href="{% url 'accounts:user_create' %}"><i class="bi bi-plus-lg"></i> Add User</a>
+</div>
+<div class="card"><div class="table-wrap"><table class="table-clean">
+  <thead><tr>
+    <th>Name</th><th>Email / Emp ID</th><th>Role</th><th>Source</th>
+    <th>Approval</th><th>Status</th><th class="text-right">Actions</th>
+  </tr></thead>
+  <tbody>
+    {% for u in users %}
+    <tr>
+      <td><div class="flex gap-2" style="align-items:center"><span class="avatar">{{ u.full_name|slice:":1"|upper }}</span> <strong>{{ u.full_name|default:u.email }}</strong></div></td>
+      <td>
+        <div>{{ u.email }}</div>
+        {% if u.employee_id %}<small class="muted">Emp #{{ u.employee_id }}</small>{% endif %}
+      </td>
+      <td>
+        {% if u.approval_status == 'PENDING' %}
+          <form method="post" action="{% url 'accounts:user_approve' u.pk %}" class="flex gap-2" style="align-items:center;margin:0">
+            {% csrf_token %}
+            <select name="role" class="form-select form-select-sm" style="max-width:170px">
+              {% for value, label in role_choices %}
+                <option value="{{ value }}" {% if u.role == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-success btn-sm" type="submit"><i class="bi bi-check2"></i> Approve</button>
+          </form>
+        {% else %}
+          <span class="badge badge-brand">{{ u.get_role_display }}</span>
+          {% if u.is_marketing_team and u.marketing_role %}
+            <span class="badge badge-neutral" style="margin-left:4px;"><i class="bi bi-award"></i> {{ u.marketing_role }}</span>
+          {% endif %}
+        {% endif %}
+      </td>
+      <td><span class="badge badge-neutral">{{ u.get_source_display }}</span></td>
+      <td>
+        {% if u.approval_status == 'APPROVED' %}
+          <span class="badge badge-success badge-dot">Approved</span>
+        {% elif u.approval_status == 'PENDING' %}
+          <span class="badge badge-warning badge-dot">Pending</span>
+        {% else %}
+          <span class="badge badge-danger badge-dot">Rejected</span>
+        {% endif %}
+      </td>
+      <td>{% if u.is_active %}<span class="badge badge-success badge-dot">Active</span>{% else %}<span class="badge badge-neutral badge-dot">Disabled</span>{% endif %}</td>
+      <td class="text-right">
+        <a class="btn btn-secondary btn-sm" href="{% url 'accounts:user_edit' u.pk %}"><i class="bi bi-pencil"></i> Edit</a>
+        {% if u.approval_status == 'PENDING' %}
+          <form method="post" action="{% url 'accounts:user_reject' u.pk %}" style="display:inline;margin:0">
+            {% csrf_token %}
+            <button class="btn btn-secondary btn-sm" type="submit" onclick="return confirm('Reject this user?')"><i class="bi bi-x"></i> Reject</button>
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

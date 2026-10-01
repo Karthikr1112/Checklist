@@ -1,0 +1,29 @@
+{% load static %}
+<header class="topbar">
+  <div class="crumbs">
+    <a href="{% url 'dashboard:index' %}">Home</a>
+    <i class="bi bi-chevron-right"></i>
+    <span class="current">{% block crumb %}{% endblock %}</span>
+  </div>
+
+  {% if user.is_authenticated %}
+  <div class="dd">
+    <button class="user-chip" data-dd type="button">
+      <span class="avatar">{{ user.full_name|slice:":1"|upper }}</span>
+      <span class="meta"><strong>{{ user.get_short_name }}</strong><span>{{ user.get_role_display }}</span></span>
+      <i class="bi bi-chevron-down" style="font-size:11px;color:var(--gray-500)"></i>
+    </button>
+    <div class="dd-menu">
+      <a class="dd-item" href="{% url 'accounts:profile' %}"><i class="bi bi-person"></i> Profile</a>
+      {% if user.is_admin_role %}
+      <a class="dd-item" href="/admin/"><i class="bi bi-gear"></i> Admin</a>
+      {% endif %}
+      <div class="dd-divider"></div>
+      <form method="post" action="{% url 'accounts:logout' %}" style="margin:0">
+        {% csrf_token %}
+        <button class="dd-item" type="submit"><i class="bi bi-box-arrow-right"></i> Sign out</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</header>

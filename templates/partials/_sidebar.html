@@ -1,0 +1,48 @@
+{% load static %}
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <span class="logo"><i class="bi bi-clipboard-check"></i></span>
+    <span>Cluster Audit</span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="sidebar-section">Workspace</div>
+    <a class="sidebar-link {% if request.resolver_match.namespace == 'dashboard' %}active{% endif %}" href="{% url 'dashboard:index' %}">
+      <i class="bi bi-grid-1x2"></i> Dashboard
+    </a>
+    <a class="sidebar-link {% if request.resolver_match.namespace == 'schedule' %}active{% endif %}" href="{% url 'schedule:calendar' %}">
+      <i class="bi bi-calendar3"></i> Schedule
+    </a>
+    <a class="sidebar-link {% if request.resolver_match.namespace == 'visits' %}active{% endif %}" href="{% url 'visits:visit_list' %}">
+      <i class="bi bi-clipboard-data"></i> Visits
+    </a>
+    <a class="sidebar-link {% if request.resolver_match.namespace == 'actions' %}active{% endif %}" href="{% url 'actions:my_actions' %}">
+      <i class="bi bi-kanban"></i> My Actions
+    </a>
+    <a class="sidebar-link" href="{% url 'actions:all_actions' %}">
+      <i class="bi bi-list-task"></i> All Actions
+    </a>
+
+    <div class="sidebar-section">Catalog</div>
+    <a class="sidebar-link {% if request.resolver_match.namespace == 'stores' %}active{% endif %}" href="{% url 'stores:store_list' %}">
+      <i class="bi bi-shop"></i> Stores
+    </a>
+    <a class="sidebar-link {% if request.resolver_match.namespace == 'checklists' %}active{% endif %}" href="{% url 'checklists:template_list' %}">
+      <i class="bi bi-list-check"></i> Checklists
+    </a>
+
+    {% if user.is_admin_role %}
+    <div class="sidebar-section">Admin</div>
+    <a class="sidebar-link {% if request.resolver_match.namespace == 'accounts' %}active{% endif %}" href="{% url 'accounts:user_list' %}">
+      <i class="bi bi-people"></i> Users
+    </a>
+    <a class="sidebar-link" href="/admin/">
+      <i class="bi bi-shield-lock"></i> Django Admin
+    </a>
+    {% endif %}
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="muted" style="font-size:11px;">v1.0 · Built for Daily Updates</div>
+  </div>
+</aside>

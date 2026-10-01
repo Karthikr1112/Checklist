@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}My Actions{% endblock %}
+{% block crumb %}My Actions{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>My Actions</h1><p>Items assigned to you across visits.</p></div></div>
+
+<div class="card"><div class="table-wrap"><table class="table-clean">
+  <thead><tr><th>Title</th><th>Store</th><th>Status</th><th>Due</th><th></th></tr></thead>
+  <tbody>
+    {% for a in items %}
+    <tr>
+      <td><strong>{{ a.title }}</strong>{% if a.description %}<div class="muted" style="font-size:12.5px">{{ a.description|truncatechars:80 }}</div>{% endif %}</td>
+      <td>{{ a.response.visit.store.code }}</td>
+      <td>
+        {% if a.status == 'OPEN' %}<span class="badge badge-warning badge-dot">Open</span>
+        {% elif a.status == 'IN_PROGRESS' %}<span class="badge badge-info badge-dot">In Progress</span>
+        {% elif a.status == 'CLOSED' %}<span class="badge badge-success badge-dot">Closed</span>
+        {% else %}<span class="badge badge-neutral badge-dot">Not Required</span>{% endif %}
+      </td>
+      <td>{{ a.due_date|default:'—' }}</td>
+      <td class="text-right">
+        {% if a.status != 'CLOSED' %}
+          <form method="post" action="{% url 'actions:action_close' a.pk %}" style="display:inline">
+            {% csrf_token %}<button class="btn btn-success btn-sm"><i class="bi bi-check2"></i> Close</button>
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% empty %}<tr><td colspan="5"><div class="empty-state"><i class="bi bi-check2-all"></i>No actions assigned to you. Nice!</div></td></tr>{% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

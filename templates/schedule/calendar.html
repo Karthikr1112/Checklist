@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Schedule{% endblock %}
+{% block crumb %}Schedule{% endblock %}
+
+{% block head_extra %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
+<style>
+  /* Tone FullCalendar to match our design system */
+  .fc { font-family: var(--font-sans); font-size: 13.5px; }
+  .fc .fc-toolbar-title { font-size: 16px; font-weight: 600; color: var(--gray-900); letter-spacing: -.02em; }
+  .fc .fc-button {
+    background: #fff; color: var(--gray-700);
+    border: 1px solid var(--gray-200); box-shadow: none;
+    text-transform: none; font-weight: 500; font-size: 13px;
+    padding: 6px 12px; border-radius: var(--radius-sm);
+  }
+  .fc .fc-button:hover { background: var(--gray-50); color: var(--gray-900); }
+  .fc .fc-button-primary:not(:disabled).fc-button-active,
+  .fc .fc-button-primary:not(:disabled):active { background: var(--brand-600); color: #fff; border-color: var(--brand-600); }
+  .fc-theme-standard td, .fc-theme-standard th, .fc-theme-standard .fc-scrollgrid { border-color: var(--gray-200); }
+  .fc .fc-col-header-cell { background: var(--gray-50); }
+  .fc .fc-col-header-cell-cushion { color: var(--gray-500); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; padding: 8px; }
+  .fc .fc-daygrid-day-number { color: var(--gray-700); font-weight: 500; padding: 6px 8px; font-size: 12.5px; }
+  .fc .fc-day-today { background: var(--brand-50) !important; }
+  .fc .fc-event { border-radius: 6px; padding: 2px 6px; font-weight: 500; cursor: pointer; }
+  .fc .fc-timegrid-slot-label-cushion { color: var(--gray-500); font-size: 11.5px; }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--gray-600); }
+  .legend .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 6px; vertical-align: middle; }
+
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .filters select { width: auto; min-width: 180px; }
+
+  /* Modal */
+  .modal-back { position: fixed; inset: 0; background: rgba(15,23,42,.55); display: none; place-items: center; z-index: 1100; padding: 16px; }
+  .modal-back.open { display: grid; }
+  .modal-card { background: #fff; border-radius: var(--radius-lg); width: 100%; max-width: 480px; box-shadow: var(--shadow-lg); overflow: hidden; }
+  .modal-head { padding: 18px 20px; border-bottom: 1px solid var(--gray-200); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .modal-head h3 { font-size: 16px; }
+  .modal-body { padding: 18px 20px; }
+  .modal-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--gray-100); font-size: 13.5px; }
+  .modal-row:last-child { border-bottom: 0; }
+  .modal-row .k { color: var(--gray-500); }
+  .modal-foot { padding: 14px 20px; background: var(--gray-50); border-top: 1px solid var(--gray-200); display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .icon-btn { background: transparent; border: 0; color: var(--gray-400); cursor: pointer; font-size: 18px; padding: 4px; }
+  .icon-btn:hover { color: var(--gray-900); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Schedule</h1>
+    <p>Plan which store you'll be at and when. Drag to create, drag again to reschedule.</p>
+  </div>
+  <a class="btn btn-primary" href="{% url 'schedule:plan_create' %}"><i class="bi bi-plus-lg"></i> New Plan</a>
+</div>
+
+<div class="card">
+  <div class="card-header" style="flex-wrap:wrap;gap:12px">
+    <div class="filters">
+      {% if is_admin %}
+      <select id="cmFilter" class="form-select form-select-sm">
+        <option value="">All Cluster Managers</option>
+        {% for cm in cluster_managers %}
+          <option value="{{ cm.id }}">{{ cm.full_name }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+      <select id="statusFilter" class="form-select form-select-sm">
+        <option value="">All Statuses</option>
+        <option value="PLANNED">Planned</option>
+        <option value="CHECKED_IN">Checked In</option>
+        <option value="COMPLETED">Completed</option>
+        <option value="MISSED">Missed</option>
+        <option value="CANCELLED">Cancelled</option>
+      </select>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:#6366f1"></span>Planned</span>
+      <span><span class="dot" style="background:#f59e0b"></span>Checked In</span>
+      <span><span class="dot" style="background:#10b981"></span>Completed</span>
+      <span><span class="dot" style="background:#ef4444"></span>Missed</span>
+      <span><span class="dot" style="background:#94a3b8"></span>Cancelled</span>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="calendar"></div>
+  </div>
+</div>
+
+<!-- Event details modal -->
+<div class="modal-back" id="planModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <h3 id="m_title">—</h3>
+        <div class="muted" id="m_when"></div>
+      </div>
+      <button class="icon-btn" onclick="closeModal()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-row"><span class="k">Cluster Manager</span><span id="m_cm">—</span></div>
+      <div class="modal-row"><span class="k">Audit Type</span><span id="m_type">—</span></div>
+      <div class="modal-row"><span class="k">Status</span><span id="m_status">—</span></div>
+      <div class="modal-row"><span class="k">Notes</span><span id="m_notes">—</span></div>
+    </div>
+    <div class="modal-foot">
+      <a id="m_open"  class="btn btn-secondary btn-sm"><i class="bi bi-eye"></i> Open</a>
+      <a id="m_edit"  class="btn btn-secondary btn-sm"><i class="bi bi-pencil"></i> Edit</a>
+      <a id="m_visit" class="btn btn-primary   btn-sm" style="display:none"><i class="bi bi-clipboard-data"></i> Open Visit</a>
+      <form id="m_startForm" method="post" style="margin:0;display:none">
+        {% csrf_token %}
+        <button class="btn btn-success btn-sm"><i class="bi bi-play-fill"></i> Start Visit</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script>
+(function () {
+  const calEl = document.getElementById('calendar');
+  const cmFilter = document.getElementById('cmFilter');
+  const statusFilter = document.getElementById('statusFilter');
+  const modal = document.getElementById('planModal');
+  const isAdmin = {{ is_admin|yesno:"true,false" }};
+
+  const cal = new FullCalendar.Calendar(calEl, {
+    initialView: 'dayGridMonth',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
+    },
+    height: 'auto',
+    nowIndicator: true,
+    selectable: true,
+    selectMirror: true,
+    editable: true,
+    dayMaxEvents: 3,
+    slotMinTime: '06:00:00',
+    slotMaxTime: '22:00:00',
+    firstDay: 1,
+    eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+
+    events: function (info, success, failure) {
+      const params = new URLSearchParams({ start: info.startStr, end: info.endStr });
+      if (cmFilter && cmFilter.value) params.set('cm', cmFilter.value);
+      if (statusFilter.value) params.set('status', statusFilter.value);
+      fetch('{% url "schedule:api_events" %}?' + params.toString())
+        .then(r => r.json()).then(success).catch(failure);
+    },
+
+    select: function (info) {
+      const url = new URL('{% url "schedule:plan_create" %}', window.location.origin);
+      url.searchParams.set('date', info.startStr.slice(0, 10));
+      if (info.startStr.length > 10) {
+        url.searchParams.set('start', info.startStr.slice(11, 16));
+        url.searchParams.set('end', info.endStr.slice(11, 16));
+      }
+      window.location = url.toString();
+    },
+
+    eventClick: function (info) { openModal(info.event); },
+
+    eventDrop: function (info) { reschedule(info); },
+    eventResize: function (info) { reschedule(info); },
+  });
+  cal.render();
+
+  if (cmFilter) cmFilter.addEventListener('change', () => cal.refetchEvents());
+  statusFilter.addEventListener('change', () => cal.refetchEvents());
+
+  function reschedule(info) {
+    const id = info.event.id;
+    fetch(info.event.extendedProps.reschedule_url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify({ start: info.event.start.toISOString(), end: info.event.end.toISOString() }),
+    }).then(r => { if (!r.ok) { info.revert(); alert('Could not reschedule.'); } });
+  }
+
+  function openModal(ev) {
+    const p = ev.extendedProps;
+    document.getElementById('m_title').textContent = ev.title;
+    document.getElementById('m_when').textContent =
+      ev.start.toLocaleString([], { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+      + ' – ' + ev.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('m_cm').textContent = p.cluster_manager;
+    document.getElementById('m_type').textContent = p.audit_type;
+    document.getElementById('m_status').textContent = p.status_label;
+    document.getElementById('m_notes').textContent = p.notes || '—';
+    document.getElementById('m_open').href = p.detail_url;
+    document.getElementById('m_edit').href = p.edit_url;
+
+    const startForm = document.getElementById('m_startForm');
+    const visitBtn = document.getElementById('m_visit');
+    if (p.visit_id) {
+      visitBtn.style.display = '';
+      visitBtn.href = p.visit_url;
+      startForm.style.display = 'none';
+    } else if (p.status === 'PLANNED' || p.status === 'CHECKED_IN') {
+      startForm.style.display = '';
+      startForm.action = p.start_visit_url;
+      visitBtn.style.display = 'none';
+    } else {
+      startForm.style.display = 'none';
+      visitBtn.style.display = 'none';
+    }
+    modal.classList.add('open');
+  }
+  window.closeModal = function () { modal.classList.remove('open'); };
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+  function getCookie(name) {
+    const m = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return m ? decodeURIComponent(m[2]) : '';
+  }
+})();
+</script>
+{% endblock %}

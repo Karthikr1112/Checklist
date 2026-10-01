@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Visits{% endblock %}
+{% block crumb %}Visits{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Visits</h1>
+    <p>All daily store-visit reports.</p>
+  </div>
+  {% if user.is_admin_role or user.is_cluster_manager %}
+    <a class="btn btn-primary" href="{% url 'visits:visit_start' %}"><i class="bi bi-plus-lg"></i> Start Visit</a>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table-clean">
+      <thead><tr><th>Date</th><th>Store</th><th>Audit Type</th><th>Cluster Manager</th><th>Status</th><th class="text-right">Compliance</th><th></th></tr></thead>
+      <tbody>
+        {% for v in visits %}
+        <tr>
+          <td>{{ v.visit_date|date:"d M Y" }}</td>
+          <td><strong>{{ v.store.code }}</strong> · {{ v.store.name }}</td>
+          <td><span class="badge badge-neutral">{{ v.get_audit_type_display }}</span></td>
+          <td>{{ v.cluster_manager.full_name }}</td>
+          <td>
+            {% with v.status as s %}
+            <span class="badge {% if s == 'APPROVED' %}badge-success{% elif s == 'SUBMITTED' %}badge-info{% elif s == 'IN_PROGRESS' %}badge-warning{% else %}badge-neutral{% endif %} badge-dot">
+              {{ v.get_status_display }}
+            </span>
+            {% endwith %}
+          </td>
+          <td class="text-right"><strong>{{ v.compliance_pct }}%</strong></td>
+          <td class="text-right"><a class="btn btn-secondary btn-sm" href="{% url 'visits:visit_detail' v.pk %}">Open</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7"><div class="empty-state"><i class="bi bi-clipboard"></i>No visits yet.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Stores{% endblock %}
+{% block crumb %}Stores{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Stores</h1><p>Your store catalogue and ownership map.</p></div>
+  {% if user.is_admin_role %}
+    <a class="btn btn-primary" href="{% url 'stores:store_create' %}"><i class="bi bi-plus-lg"></i> Add Store</a>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table-clean">
+      <thead><tr><th>Code</th><th>Name</th><th>City</th><th>Region</th><th>Cluster Mgr</th><th>Store Mgr</th><th>Inventory</th><th>Marketing</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for s in stores %}
+        <tr>
+          <td><strong>{{ s.code }}</strong></td>
+          <td>{{ s.name }}</td>
+          <td>{{ s.city }}</td>
+          <td>{{ s.region|default:'—' }}</td>
+          <td>{{ s.cluster_manager.full_name|default:'—' }}</td>
+          <td>{{ s.store_manager.full_name|default:'—' }}</td>
+          <td>{{ s.inventory_team.full_name|default:'—' }}</td>
+          <td>{{ s.marketing_team.full_name|default:'—' }}</td>
+          <td>
+            {% if s.is_active %}<span class="badge badge-success badge-dot">Active</span>
+            {% else %}<span class="badge badge-neutral badge-dot">Inactive</span>{% endif %}
+          </td>
+          <td class="text-right">
+            {% if user.is_admin_role %}
+              <a class="btn btn-secondary btn-sm" href="{% url 'stores:store_update' s.pk %}">Edit</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="10"><div class="empty-state"><i class="bi bi-shop"></i>No stores yet.</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

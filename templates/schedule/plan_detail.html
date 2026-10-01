@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Plan · {{ plan.store.code }}{% endblock %}
+{% block crumb %}<a href="{% url 'schedule:calendar' %}">Schedule</a> <i class="bi bi-chevron-right"></i> {{ plan.store.code }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>{{ plan.store.code }} · {{ plan.store.name }}</h1>
+    <p>{{ plan.planned_date|date:"l, d M Y" }} · {{ plan.start_time|time:"H:i" }}–{{ plan.end_time|time:"H:i" }}</p>
+  </div>
+  <div class="flex gap-2">
+    {% if can_edit %}<a class="btn btn-secondary" href="{% url 'schedule:plan_edit' plan.pk %}"><i class="bi bi-pencil"></i> Edit</a>{% endif %}
+    {% if plan.visit_id %}
+      <a class="btn btn-primary" href="{% url 'visits:visit_detail' plan.visit_id %}"><i class="bi bi-clipboard-data"></i> Open Visit</a>
+    {% elif can_edit and plan.status == 'PLANNED' or plan.status == 'CHECKED_IN' %}
+      <form method="post" action="{% url 'schedule:plan_start_visit' plan.pk %}" style="margin:0">
+        {% csrf_token %}<button class="btn btn-success"><i class="bi bi-play-fill"></i> Start Visit</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="max-width:640px">
+  <div class="card-body">
+    <div class="modal-row" style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--gray-100)">
+      <span class="muted">Cluster Manager</span><strong>{{ plan.cluster_manager.full_name }}</strong>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--gray-100)">
+      <span class="muted">Audit Type</span><span class="badge badge-neutral">{{ plan.get_audit_type_display }}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--gray-100)">
+      <span class="muted">Status</span>
+      {% with plan.status as s %}
+      <span class="badge {% if s == 'COMPLETED' %}badge-success{% elif s == 'CHECKED_IN' %}badge-warning{% elif s == 'MISSED' %}badge-danger{% elif s == 'CANCELLED' %}badge-neutral{% else %}badge-brand{% endif %} badge-dot">{{ plan.get_status_display }}</span>
+      {% endwith %}
+    </div>
+    <div style="padding:10px 0">
+      <div class="muted mb-2">Notes</div>
+      <div>{{ plan.notes|default:"—"|linebreaksbr }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

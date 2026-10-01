@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Checklists{% endblock %}
+{% block crumb %}Checklists{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>Checklist Templates</h1><p>The questions used during a store visit.</p></div></div>
+<div class="card"><div class="table-wrap"><table class="table-clean">
+  <thead><tr><th>Name</th><th>Version</th><th>Status</th><th>Sections</th><th>Questions</th><th></th></tr></thead>
+  <tbody>
+    {% for t in templates %}
+    <tr>
+      <td><strong>{{ t.name }}</strong></td>
+      <td><span class="q-code-pill">v{{ t.version }}</span></td>
+      <td>{% if t.is_active %}<span class="badge badge-success badge-dot">Active</span>{% else %}<span class="badge badge-neutral badge-dot">Inactive</span>{% endif %}</td>
+      <td>{{ t.sections.count }}</td>
+      <td>{{ t.question_count }}</td>
+      <td class="text-right"><a class="btn btn-secondary btn-sm" href="{% url 'checklists:template_detail' t.pk %}">View</a></td>
+    </tr>
+    {% empty %}<tr><td colspan="6"><div class="empty-state"><i class="bi bi-clipboard-x"></i>No templates. Run <code>seed_checklist</code>.</div></td></tr>{% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

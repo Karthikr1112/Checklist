@@ -1,0 +1,25 @@
+# Core
+Django>=5.1,<5.2
+django-environ>=0.11,<1.0
+
+# Database
+# Note: mysqlclient is only required if using MySQL (USE_SQLITE=False).
+# SQLite uses Python's built-in sqlite3 and needs no extra packages.
+# mysqlclient>=2.2,<3.0
+
+# REST API
+djangorestframework>=3.15,<4.0
+
+# Forms / UI
+django-crispy-forms>=2.3,<3.0
+crispy-bootstrap5>=2024.10
+django-jazzmin>=3.0,<4.0
+
+# Static files
+whitenoise>=6.7,<7.0
+
+# Media (ImageField)
+Pillow>=10.4,<12.0
+
+# Production server
+gunicorn>=22.0,<24.0

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ template.name }}{% endblock %}
+{% block crumb %}<a href="{% url 'checklists:template_list' %}">Checklists</a> <i class="bi bi-chevron-right"></i> {{ template.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ template.name }} <span class="q-code-pill" style="font-size:13px">v{{ template.version }}</span></h1>
+    <p>{{ template.sections.count }} sections · {{ template.question_count }} questions</p>
+  </div>
+</div>
+
+{% for s in sections %}
+<div class="card">
+  <div class="card-header">{{ s.name }} <span class="badge badge-neutral">{{ s.questions.count }}</span></div>
+  <div class="table-wrap"><table class="table-clean">
+    <thead><tr><th>Code</th><th>Question</th><th>Evidence Hint</th><th>Photo?</th></tr></thead>
+    <tbody>
+      {% for q in s.questions.all %}
+      <tr>
+        <td><span class="q-code-pill">{{ q.code }}</span></td>
+        <td>{{ q.text }}</td>
+        <td><small class="muted">{{ q.evidence_hint|default:'—' }}</small></td>
+        <td>{% if q.requires_photo %}<span class="badge badge-info badge-dot">Required</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endfor %}
+{% endblock %}

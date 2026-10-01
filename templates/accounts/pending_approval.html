@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Pending approval{% endblock %}
+{% block crumb %}Pending approval{% endblock %}
+{% block content %}
+<div class="auth-shell" style="min-height:60vh">
+  <div class="auth-card" style="text-align:center">
+    <span class="logo" style="margin:0 auto 16px;width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);display:grid;place-items:center;color:#fff;font-size:22px">
+      <i class="bi bi-hourglass-split"></i>
+    </span>
+    <h2 style="margin-bottom:8px">Waiting for admin approval</h2>
+    <p class="muted" style="margin-bottom:6px">
+      Hi {{ user_obj.full_name|default:user_obj.email }}, your StyleHR sign-in worked.
+    </p>
+    <p class="muted" style="margin-bottom:24px">
+      An administrator needs to approve your account before you can access Cluster Audit.
+      Please check back shortly.
+    </p>
+
+    <div class="card" style="text-align:left;margin-bottom:20px">
+      <div style="padding:14px 16px">
+        <div><span class="muted">Email</span> &middot; <strong>{{ user_obj.email }}</strong></div>
+        {% if user_obj.employee_id %}
+        <div><span class="muted">Employee ID</span> &middot; <strong>{{ user_obj.employee_id }}</strong></div>
+        {% endif %}
+        <div><span class="muted">Status</span> &middot;
+          <span class="badge badge-warning badge-dot">{{ user_obj.get_approval_status_display }}</span>
+        </div>
+      </div>
+    </div>
+
+    <form method="post" action="{% url 'accounts:logout' %}" style="margin:0">
+      {% csrf_token %}
+      <button class="btn btn-secondary btn-block" type="submit">
+        <i class="bi bi-box-arrow-right"></i> Sign out
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

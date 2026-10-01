@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Daily Update · {{ visit.store.code }}{% endblock %}
+{% block crumb %}<a href="{% url 'visits:visit_list' %}">Visits</a> <i class="bi bi-chevron-right"></i> <a href="{% url 'visits:visit_detail' visit.pk %}">{{ visit.store.code }}</a> <i class="bi bi-chevron-right"></i> Edit{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>Daily Update — {{ visit.store.code }} · {{ visit.store.name }}</h1>
+    <p>{{ visit.visit_date|date:"d M Y" }} · {{ visit.get_audit_type_display }}</p>
+  </div>
+  <a class="btn btn-secondary" href="{% url 'visits:visit_detail' visit.pk %}"><i class="bi bi-arrow-left"></i> Back to summary</a>
+</div>
+
+<div class="alert alert-info">
+  <i class="bi bi-lightbulb"></i>
+  <div>Pick <strong>Yes / No / NA</strong> per question. Add observations (Work Done Today / Blockers) and attach photos where useful. Compliance is auto-calculated.</div>
+</div>
+
+{% for section, items in grouped.items %}
+<div class="card">
+  <div class="card-header">{{ section.name }} <span class="badge badge-neutral">{{ items|length }}</span></div>
+  <div>
+    {% for r in items %}
+    <div class="q-row">
+      <div class="flex" style="justify-content:space-between;align-items:flex-start;gap:12px">
+        <div class="flex-1">
+          <span class="q-code-pill">{{ r.question.code }}</span>
+          <div class="q-text">{{ r.question.text }}</div>
+          {% if r.question.evidence_hint %}<div class="q-evidence"><i class="bi bi-rulers"></i> {{ r.question.evidence_hint }}</div>{% endif %}
+        </div>
+      </div>
+
+      <form method="post" action="{% url 'visits:response_save' r.pk %}" class="flex gap-2 mt-3 js-autosave-form" style="flex-wrap:wrap;align-items:center" data-response-pk="{{ r.pk }}">
+        {% csrf_token %}
+        <select name="response" class="form-select form-select-sm js-autosave-field" style="max-width:130px">
+          <option value="">— Select —</option>
+          <option value="YES" {% if r.response == 'YES' %}selected{% endif %}>✓ Yes</option>
+          <option value="NO"  {% if r.response == 'NO'  %}selected{% endif %}>✗ No</option>
+          <option value="NA"  {% if r.response == 'NA'  %}selected{% endif %}>NA</option>
+        </select>
+        <input name="observation" type="text" class="form-control form-control-sm js-autosave-field" style="flex:1;min-width:240px"
+               placeholder="Work Done Today / Blockers / Observation" value="{{ r.observation }}">
+        <span class="js-autosave-status muted" style="font-size:12px;min-width:80px">
+          <i class="bi bi-cloud-check"></i> Saved
+        </span>
+      </form>
+
+      {% if r.photos.all %}
+      <div class="flex gap-2 mt-3" style="flex-wrap:wrap">
+        {% for p in r.photos.all %}
+          <a href="{{ p.image.url }}" target="_blank"><img src="{{ p.image.url }}" class="thumb" alt=""></a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <details class="mt-3">
+        <summary class="muted" style="font-size:12.5px;cursor:pointer">
+          <i class="bi bi-paperclip"></i> Attach photo / Create action
+        </summary>
+        <form method="post" enctype="multipart/form-data" action="{% url 'visits:response_photo_upload' r.pk %}" class="flex gap-2 mt-2" style="flex-wrap:wrap">
+          {% csrf_token %}
+          <input type="file" name="image" accept="image/*" capture="environment" class="form-control form-control-sm" style="flex:1;min-width:200px">
+          <input type="text" name="caption" placeholder="Caption (optional)" class="form-control form-control-sm" style="flex:1;min-width:160px">
+          <button class="btn btn-secondary btn-sm"><i class="bi bi-upload"></i> Upload</button>
+        </form>
+        <a class="btn btn-warning btn-sm mt-2" href="{% url 'actions:action_create' r.pk %}"><i class="bi bi-plus-lg"></i> Create Action</a>
+      </details>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+
+<form method="post" action="{% url 'visits:visit_submit' visit.pk %}" class="mt-4">
+  {% csrf_token %}
+  <button class="btn btn-success btn-lg btn-block"><i class="bi bi-send-check"></i> Submit Visit for Review</button>
+</form>
+
+<script>
+(function () {
+  const TYPING_DEBOUNCE_MS = 700;
+
+  function setStatus(form, state) {
+    const el = form.querySelector('.js-autosave-status');
+    if (!el) return;
+    if (state === 'typing') {
+      el.innerHTML = '<i class="bi bi-pencil"></i> Editing…';
+      el.style.color = '';
+    } else if (state === 'saving') {
+      el.innerHTML = '<i class="bi bi-arrow-repeat"></i> Saving…';
+      el.style.color = '';
+    } else if (state === 'saved') {
+      el.innerHTML = '<i class="bi bi-cloud-check"></i> Saved';
+      el.style.color = '';
+    } else if (state === 'error') {
+      el.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Error';
+      el.style.color = '#b00020';
+    }
+  }
+
+  async function submitForm(form) {
+    setStatus(form, 'saving');
+    const fd = new FormData(form);
+    try {
+      const res = await fetch(form.action, {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!data.ok) throw new Error('save failed');
+      setStatus(form, 'saved');
+    } catch (err) {
+      console.error('autosave failed', err);
+      setStatus(form, 'error');
+    }
+  }
+
+  document.querySelectorAll('.js-autosave-form').forEach(function (form) {
+    let timer = null;
+    form.addEventListener('submit', function (e) { e.preventDefault(); });
+
+    form.querySelectorAll('.js-autosave-field').forEach(function (field) {
+      const isText = field.tagName === 'INPUT' || field.tagName === 'TEXTAREA';
+
+      field.addEventListener('change', function () {
+        clearTimeout(timer);
+        submitForm(form);
+      });
+
+      if (isText) {
+        field.addEventListener('input', function () {
+          setStatus(form, 'typing');
+          clearTimeout(timer);
+          timer = setTimeout(function () { submitForm(form); }, TYPING_DEBOUNCE_MS);
+        });
+        field.addEventListener('blur', function () {
+          clearTimeout(timer);
+          submitForm(form);
+        });
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}
