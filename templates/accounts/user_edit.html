@@ -16,7 +16,7 @@
     <div class="card"><div class="card-body" style="padding:16px">
       <h3 style="margin-top:0">Profile</h3>
       {% for f in form %}
-        {% if f.name != 'stores' %}
+        {% if f.name != 'stores' and f.name != 'all_stores_access' %}
         <div class="form-group" {% if f.name == 'marketing_role' %}id="marketing_role_field" {% if target.role != 'MARKETING_TEAM' %}style="display:none;"{% endif %}{% endif %}>
           <label class="form-label">{{ f.label }}</label>
           {{ f }}
@@ -30,13 +30,32 @@
     <div class="card"><div class="card-body" style="padding:16px">
       <h3 style="margin-top:0">Assigned Stores</h3>
       <p class="muted" style="margin-top:0">
-        Stores listed below will be linked to this user based on their selected role
-        (Cluster Manager / Store Manager / Inventory Team / Marketing Team). Other roles ignore this list.
+        Assign one or more stores to this user. Multiple users can share the same stores without conflict.
       </p>
+
+      <div class="form-group" style="background:#f1f5f9;padding:12px;border-radius:8px;border:1px solid #cbd5e1;margin-bottom:16px;">
+        <label class="form-label" style="font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:4px;">
+          {{ form.all_stores_access }} {{ form.all_stores_access.label }}
+        </label>
+        <div class="muted" style="font-size:12px;margin-left:22px;">{{ form.all_stores_access.help_text }}</div>
+        {% if form.all_stores_access.errors %}<div class="form-error">{{ form.all_stores_access.errors|striptags }}</div>{% endif %}
+      </div>
+
+      <div id="all_stores_notice" class="alert alert-info" style="display:none;margin-bottom:12px;padding:8px 12px;font-size:13px;background:#e0f2fe;color:#0369a1;border-radius:6px;">
+        <i class="bi bi-info-circle"></i> <strong>All Stores Access Enabled:</strong> This user can plan and conduct audits for all stores.
+      </div>
+
       <div class="form-group">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <label class="form-label" style="margin-bottom:0;font-weight:600;">Specific Stores</label>
+          <div style="display:flex;gap:6px;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-select-all" style="padding:3px 10px;font-size:12px;">Select All</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-deselect-all" style="padding:3px 10px;font-size:12px;">Clear All</button>
+          </div>
+        </div>
         {{ form.stores }}
         {% if form.stores.errors %}<div class="form-error">{{ form.stores.errors|striptags }}</div>{% endif %}
-        <small class="muted">Hold Ctrl / Cmd to select multiple stores.</small>
+        <small class="muted" style="display:block;margin-top:6px;">Hold Ctrl (Cmd on Mac) to select multiple individual stores.</small>
       </div>
     </div></div>
   </div>
@@ -51,6 +70,12 @@
 document.addEventListener("DOMContentLoaded", function() {
   const roleSelect = document.querySelector('[name="role"]');
   const mRoleField = document.getElementById("marketing_role_field");
+  const allStoresCheckbox = document.querySelector('[name="all_stores_access"]');
+  const allStoresNotice = document.getElementById("all_stores_notice");
+  const btnSelectAll = document.getElementById("btn-select-all");
+  const btnDeselectAll = document.getElementById("btn-deselect-all");
+  const storesSelect = document.getElementById("id_stores");
+
   function syncMarketing() {
     if (!roleSelect || !mRoleField) return;
     if (roleSelect.value === "MARKETING_TEAM") {
@@ -59,9 +84,36 @@ document.addEventListener("DOMContentLoaded", function() {
       mRoleField.style.display = "none";
     }
   }
+
+  function syncAllStores() {
+    if (!allStoresCheckbox || !allStoresNotice) return;
+    if (allStoresCheckbox.checked) {
+      allStoresNotice.style.display = "block";
+    } else {
+      allStoresNotice.style.display = "none";
+    }
+  }
+
   if (roleSelect) {
     roleSelect.addEventListener("change", syncMarketing);
     syncMarketing();
+  }
+
+  if (allStoresCheckbox) {
+    allStoresCheckbox.addEventListener("change", syncAllStores);
+    syncAllStores();
+  }
+
+  if (btnSelectAll && storesSelect) {
+    btnSelectAll.addEventListener("click", function() {
+      Array.from(storesSelect.options).forEach(opt => opt.selected = true);
+    });
+  }
+
+  if (btnDeselectAll && storesSelect) {
+    btnDeselectAll.addEventListener("click", function() {
+      Array.from(storesSelect.options).forEach(opt => opt.selected = false);
+    });
   }
 });
 </script>

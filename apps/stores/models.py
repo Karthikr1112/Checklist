@@ -50,3 +50,19 @@ class Store(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.code} — {self.name}"
+
+    @property
+    def assigned_cluster_managers(self):
+        return self.assigned_users.filter(role="CLUSTER_MANAGER", is_active=True)
+
+    @property
+    def assigned_store_managers(self):
+        return self.assigned_users.filter(role="STORE_MANAGER", is_active=True)
+
+    @property
+    def assigned_inventory(self):
+        return self.assigned_users.filter(role="INVENTORY_TEAM", is_active=True)
+
+    @property
+    def assigned_marketing(self):
+        return self.assigned_users.filter(role="MARKETING_TEAM", is_active=True)

@@ -2,6 +2,7 @@ from django import forms
 
 from apps.checklists.models import ChecklistTemplate
 from apps.stores.models import Store
+from apps.stores.selectors import stores_visible_to
 
 from .models import AuditType, Response, Visit, VisitResponse
 
@@ -50,10 +51,8 @@ class StartVisitForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.user = user
         if user is not None and not user.is_admin_role:
+            self.fields["store"].queryset = stores_visible_to(user)
             if user.is_inventory_team:
-                self.fields["store"].queryset = self.fields["store"].queryset.filter(
-                    inventory_team=user
-                )
                 self.fields["department"].choices = [
                     ("INVENTORY_TEAM", "Inventory Team Daily Checklist")
                 ]
@@ -61,9 +60,6 @@ class StartVisitForm(forms.Form):
                 self.fields["department"].widget = forms.HiddenInput()
                 self.fields["marketing_role"].widget = forms.HiddenInput()
             elif user.is_marketing_team:
-                m_stores = self.fields["store"].queryset.filter(marketing_team=user)
-                if m_stores.exists():
-                    self.fields["store"].queryset = m_stores
                 self.fields["department"].choices = [
                     ("MARKETING_TEAM", "Marketing Team")
                 ]
@@ -73,9 +69,6 @@ class StartVisitForm(forms.Form):
                     self.fields["marketing_role"].initial = user.marketing_role
                     self.fields["marketing_role"].widget = forms.HiddenInput()
             else:
-                self.fields["store"].queryset = self.fields["store"].queryset.filter(
-                    cluster_manager=user
-                )
                 self.fields["department"].choices = [
                     ("CLUSTER_MANAGER", "Cluster Manager Store Visit")
                 ]

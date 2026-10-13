@@ -79,6 +79,23 @@ class Visit(BaseModel):
             response__visit=self, status__in=[ActionStatus.OPEN, ActionStatus.IN_PROGRESS]
         ).count()
 
+    @property
+    def is_marketing_checklist(self) -> bool:
+        return (
+            self.template.audience == ChecklistTemplate.Audience.MARKETING_TEAM
+            or getattr(self.cluster_manager, "role", "") == "MARKETING_TEAM"
+            or bool(getattr(self.cluster_manager, "marketing_role", ""))
+        )
+
+    def can_be_approved_by(self, user) -> bool:
+        if not user or not user.is_authenticated or not getattr(user, "is_approved", True):
+            return False
+        if getattr(user, "is_admin_role", False):
+            return True
+        if getattr(user, "is_marketing_head", False) and self.is_marketing_checklist:
+            return True
+        return False
+
 
 class VisitResponse(BaseModel):
     visit = models.ForeignKey(Visit, on_delete=models.CASCADE, related_name="responses")

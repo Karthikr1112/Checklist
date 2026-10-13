@@ -61,13 +61,13 @@ class UserEditForm(forms.ModelForm):
     stores = forms.ModelMultipleChoiceField(
         queryset=Store.objects.filter(is_active=True).order_by("code"),
         required=False,
-        widget=forms.SelectMultiple(attrs={"class": "form-select", "size": 12}),
-        help_text="Stores this user is responsible for (based on their role).",
+        widget=forms.SelectMultiple(attrs={"class": "form-select", "size": 12, "id": "id_stores"}),
+        help_text="Stores assigned to this user (multiple users can share the same stores).",
     )
 
     class Meta:
         model = User
-        fields = ("email", "full_name", "phone", "role", "marketing_role", "is_active")
+        fields = ("email", "full_name", "phone", "role", "marketing_role", "all_stores_access", "is_active")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -80,9 +80,7 @@ class UserEditForm(forms.ModelForm):
                 field.widget.attrs.setdefault("class", "form-control")
 
         if self.instance and self.instance.pk:
-            field = ROLE_TO_STORE_FIELD.get(self.instance.role)
-            if field:
-                self.fields["stores"].initial = Store.objects.filter(**{field: self.instance})
+            self.fields["stores"].initial = self.instance.assigned_stores.all()
 
     def clean(self):
         cleaned_data = super().clean()
@@ -97,24 +95,6 @@ class UserEditForm(forms.ModelForm):
     @transaction.atomic
     def save(self, commit: bool = True) -> User:
         user = super().save(commit=commit)
-        field = ROLE_TO_STORE_FIELD.get(user.role)
-        if field is None:
-            # Role with no store ownership: clear any prior assignments on all three FKs.
-            for f in ROLE_TO_STORE_FIELD.values():
-                Store.objects.filter(**{f: user}).update(**{f: None})
-            return user
-
         selected = self.cleaned_data.get("stores") or Store.objects.none()
-        selected_ids = list(selected.values_list("pk", flat=True))
-
-        # Clear assignments on the *other* FK columns where this user was set.
-        for other in ROLE_TO_STORE_FIELD.values():
-            if other != field:
-                Store.objects.filter(**{other: user}).update(**{other: None})
-
-        # Unset stores the user is no longer assigned to on the active FK.
-        Store.objects.filter(**{field: user}).exclude(pk__in=selected_ids).update(**{field: None})
-        # Assign newly-selected stores.
-        if selected_ids:
-            Store.objects.filter(pk__in=selected_ids).update(**{field: user})
+        user.assigned_stores.set(selected)
         return user

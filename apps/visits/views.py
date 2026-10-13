@@ -54,7 +54,11 @@ def visit_detail(request, pk):
     return render(
         request,
         "visits/visit_detail.html",
-        {"visit": visit, "grouped": grouped},
+        {
+            "visit": visit,
+            "grouped": grouped,
+            "can_approve": visit.can_be_approved_by(request.user),
+        },
     )
 
 
@@ -144,10 +148,12 @@ def visit_submit(request, pk):
     return redirect("visits:visit_detail", pk=visit.pk)
 
 
-@role_required(Role.ADMIN)
+@login_required
 def visit_approve(request, pk):
     visit = get_object_or_404(Visit, pk=pk)
+    if not visit.can_be_approved_by(request.user):
+        return HttpResponseForbidden("You do not have permission to approve this visit.")
     if request.method == "POST" and visit.status == VisitStatus.SUBMITTED:
         approve_visit(visit, request.user)
-        messages.success(request, "Visit approved.")
+        messages.success(request, f"Visit for {visit.store.code} approved.")
     return redirect("visits:visit_detail", pk=visit.pk)

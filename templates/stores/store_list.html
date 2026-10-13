@@ -20,10 +20,42 @@
           <td>{{ s.name }}</td>
           <td>{{ s.city }}</td>
           <td>{{ s.region|default:'—' }}</td>
-          <td>{{ s.cluster_manager.full_name|default:'—' }}</td>
-          <td>{{ s.store_manager.full_name|default:'—' }}</td>
-          <td>{{ s.inventory_team.full_name|default:'—' }}</td>
-          <td>{{ s.marketing_team.full_name|default:'—' }}</td>
+          <td>
+            {% with cms=s.assigned_cluster_managers %}
+              {% if cms.exists %}
+                {% for cm in cms %}{{ cm.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+              {% else %}
+                {{ s.cluster_manager.full_name|default:'—' }}
+              {% endif %}
+            {% endwith %}
+          </td>
+          <td>
+            {% with sms=s.assigned_store_managers %}
+              {% if sms.exists %}
+                {% for sm in sms %}{{ sm.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+              {% else %}
+                {{ s.store_manager.full_name|default:'—' }}
+              {% endif %}
+            {% endwith %}
+          </td>
+          <td>
+            {% with invs=s.assigned_inventory %}
+              {% if invs.exists %}
+                {% for inv in invs %}{{ inv.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+              {% else %}
+                {{ s.inventory_team.full_name|default:'—' }}
+              {% endif %}
+            {% endwith %}
+          </td>
+          <td>
+            {% with mkts=s.assigned_marketing %}
+              {% if mkts.exists %}
+                {% for mkt in mkts %}{{ mkt.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+              {% else %}
+                {{ s.marketing_team.full_name|default:'—' }}
+              {% endif %}
+            {% endwith %}
+          </td>
           <td>
             {% if s.is_active %}<span class="badge badge-success badge-dot">Active</span>
             {% else %}<span class="badge badge-neutral badge-dot">Inactive</span>{% endif %}

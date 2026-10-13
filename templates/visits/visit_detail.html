@@ -6,7 +6,12 @@
 <div class="page-header">
   <div>
     <h1>{{ visit.store.code }} · {{ visit.store.name }}</h1>
-    <p>{{ visit.visit_date|date:"d M Y" }} · {{ visit.get_audit_type_display }} · {{ visit.cluster_manager.full_name }}</p>
+    <p>
+      {{ visit.visit_date|date:"d M Y" }} · {{ visit.get_audit_type_display }} · {{ visit.cluster_manager.full_name }}{% if visit.cluster_manager.marketing_role %} ({{ visit.cluster_manager.marketing_role }}){% endif %}
+      {% if visit.approved_by %}
+        · <span style="color:var(--success);"><i class="bi bi-check-circle-fill"></i> Approved by {{ visit.approved_by.full_name }} on {{ visit.approved_at|date:"d M Y, H:i" }}</span>
+      {% endif %}
+    </p>
   </div>
   <div class="flex gap-2">
     {% if visit.cluster_manager_id == user.id or user.is_admin_role %}
@@ -17,7 +22,7 @@
         {% csrf_token %}<button class="btn btn-success"><i class="bi bi-send"></i> Submit</button>
       </form>
     {% endif %}
-    {% if visit.status == 'SUBMITTED' and user.is_admin_role %}
+    {% if visit.status == 'SUBMITTED' and can_approve %}
       <form method="post" action="{% url 'visits:visit_approve' visit.pk %}" style="margin:0">
         {% csrf_token %}<button class="btn btn-warning"><i class="bi bi-check2-circle"></i> Approve</button>
       </form>

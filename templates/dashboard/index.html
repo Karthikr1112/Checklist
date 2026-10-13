@@ -8,7 +8,7 @@
     <h1>Welcome back, {{ user.get_short_name }}</h1>
     <p>Here's what's happening across your stores today.</p>
   </div>
-  {% if user.is_admin_role or user.is_cluster_manager %}
+  {% if user.is_admin_role or user.is_cluster_manager or user.is_inventory_team or user.is_marketing_team %}
     <a class="btn btn-primary" href="{% url 'visits:visit_start' %}"><i class="bi bi-plus-lg"></i> Start Visit</a>
   {% endif %}
 </div>
@@ -47,13 +47,18 @@
   </div>
   <div class="table-wrap">
     <table class="table-clean">
-      <thead><tr><th>Date</th><th>Store</th><th>Cluster Manager</th><th>Status</th><th class="text-right">Compliance</th></tr></thead>
+      <thead><tr><th>Date</th><th>Store</th><th>Conducted By</th><th>Status</th><th class="text-right">Compliance</th></tr></thead>
       <tbody>
       {% for v in recent_visits %}
         <tr>
           <td>{{ v.visit_date|date:"d M Y" }}</td>
           <td><a href="{% url 'visits:visit_detail' v.pk %}"><strong>{{ v.store.code }}</strong> · {{ v.store.name }}</a></td>
-          <td>{{ v.cluster_manager.full_name }}</td>
+          <td>
+            {{ v.cluster_manager.full_name }}
+            {% if v.cluster_manager.marketing_role %}
+              <div class="muted" style="font-size:11px;">{{ v.cluster_manager.marketing_role }}</div>
+            {% endif %}
+          </td>
           <td>
             {% with v.status as s %}
             <span class="badge {% if s == 'APPROVED' %}badge-success{% elif s == 'SUBMITTED' %}badge-info{% elif s == 'IN_PROGRESS' %}badge-warning{% else %}badge-neutral{% endif %} badge-dot">

@@ -2,6 +2,7 @@ from django import forms
 
 from apps.accounts.models import Role, User
 from apps.stores.models import Store
+from apps.stores.selectors import stores_visible_to
 from apps.visits.models import AuditType
 
 from .models import PlanStatus, VisitPlan
@@ -41,18 +42,7 @@ class VisitPlanForm(forms.ModelForm):
             self.fields["cluster_manager"].queryset = User.objects.filter(pk=user.pk)
             self.fields["cluster_manager"].initial = user
             self.fields["cluster_manager"].widget = forms.HiddenInput()
-            if user.is_inventory_team:
-                self.fields["store"].queryset = Store.objects.filter(
-                    is_active=True, inventory_team=user
-                )
-            elif user.is_marketing_team:
-                m_stores = Store.objects.filter(is_active=True, marketing_team=user)
-                if m_stores.exists():
-                    self.fields["store"].queryset = m_stores
-            else:
-                self.fields["store"].queryset = Store.objects.filter(
-                    is_active=True, cluster_manager=user
-                )
+            self.fields["store"].queryset = stores_visible_to(user)
 
     def clean(self):
         cleaned = super().clean()

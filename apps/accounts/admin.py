@@ -7,17 +7,19 @@ from .models import User
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
     ordering = ("email",)
-    list_display = ("email", "full_name", "employee_id", "role", "source", "approval_status", "is_active", "is_staff")
-    list_filter = ("role", "source", "approval_status", "is_active", "is_staff")
+    list_display = ("email", "full_name", "employee_id", "role", "all_stores_access", "source", "approval_status", "is_active", "is_staff")
+    list_filter = ("role", "all_stores_access", "source", "approval_status", "is_active", "is_staff")
     search_fields = ("email", "full_name", "phone", "employee_id")
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        ("Profile", {"fields": ("full_name", "phone", "employee_id", "role")}),
+        ("Profile", {"fields": ("full_name", "phone", "employee_id", "role", "marketing_role")}),
+        ("Store Access", {"fields": ("all_stores_access", "assigned_stores")}),
         ("Origin & Approval", {"fields": ("source", "approval_status", "approved_at", "approved_by")}),
         ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
         ("Dates", {"fields": ("last_login", "date_joined")}),
     )
+    filter_horizontal = ("assigned_stores", "groups", "user_permissions")
     add_fieldsets = (
         (
             None,

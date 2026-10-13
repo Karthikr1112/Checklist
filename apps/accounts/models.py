@@ -80,6 +80,17 @@ class User(AbstractBaseUser, PermissionsMixin):
         related_name="approved_users",
     )
 
+    all_stores_access = models.BooleanField(
+        default=False,
+        help_text=_("Grant access to all active stores regardless of explicit assignments."),
+    )
+    assigned_stores = models.ManyToManyField(
+        "stores.Store",
+        blank=True,
+        related_name="assigned_users",
+        help_text=_("Stores explicitly assigned to this user."),
+    )
+
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
@@ -117,6 +128,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def is_marketing_team(self) -> bool:
         return self.role == Role.MARKETING_TEAM
+
+    @property
+    def is_marketing_head(self) -> bool:
+        return self.role == Role.MARKETING_TEAM and self.marketing_role == MarketingRole.HEAD
 
     @property
     def is_approved(self) -> bool:
