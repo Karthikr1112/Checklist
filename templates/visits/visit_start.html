@@ -36,6 +36,22 @@
             {{ form.marketing_role }}
             {% if form.marketing_role.errors %}<div class="form-error">{{ form.marketing_role.errors|striptags }}</div>{% endif %}
           </div>
+
+          <div id="vm_role_col" style="display: none;">
+            <label class="form-label" for="{{ form.vm_role.id_for_label }}">
+              <i class="bi bi-award text-brand"></i> {{ form.vm_role.label }}
+            </label>
+            {{ form.vm_role }}
+            {% if form.vm_role.errors %}<div class="form-error">{{ form.vm_role.errors|striptags }}</div>{% endif %}
+          </div>
+
+          <div id="gh_role_col" style="display: none;">
+            <label class="form-label" for="{{ form.gh_role.id_for_label }}">
+              <i class="bi bi-award text-brand"></i> {{ form.gh_role.label }}
+            </label>
+            {{ form.gh_role }}
+            {% if form.gh_role.errors %}<div class="form-error">{{ form.gh_role.errors|striptags }}</div>{% endif %}
+          </div>
         </div>
       {% else %}
         <!-- For normal users: locked checklist display -->
@@ -46,6 +62,10 @@
             <strong style="color:var(--gray-900); font-size:14px;">
               {% if user.is_marketing_team %}
                 Marketing Team — {{ user.marketing_role }}
+              {% elif user.is_vm_team %}
+                VM Team — {{ user.vm_role }}
+              {% elif user.is_grocery_home %}
+                Grocery &amp; Home — {{ user.gh_role }}
               {% elif user.is_inventory_team %}
                 Inventory Team Daily Checklist
               {% else %}
@@ -56,6 +76,8 @@
         </div>
         {{ form.department }}
         {{ form.marketing_role }}
+        {{ form.vm_role }}
+        {{ form.gh_role }}
       {% endif %}
 
       <!-- Date & Audit Type (2 columns) -->
@@ -86,23 +108,25 @@ document.addEventListener("DOMContentLoaded", function () {
   const deptSelect = document.getElementById("id_department");
   const roleCol = document.getElementById("marketing_role_col");
   const roleSelect = document.getElementById("id_marketing_role");
+  const vmRoleCol = document.getElementById("vm_role_col");
+  const vmRoleSelect = document.getElementById("id_vm_role");
+  const ghRoleCol = document.getElementById("gh_role_col");
+  const ghRoleSelect = document.getElementById("id_gh_role");
   const templateRow = document.getElementById("template_selection_row");
 
   function updateLayout() {
     if (!deptSelect || !roleCol || !templateRow) return;
     const isMarketing = (deptSelect.value === "MARKETING_TEAM");
+    const isVM = (deptSelect.value === "VM_TEAM");
+    const isGH = (deptSelect.value === "GROCERY_HOME");
 
-    if (isMarketing) {
-      roleCol.style.display = "block";
-      templateRow.style.gridTemplateColumns = "1fr 1fr";
-      if (roleSelect) roleSelect.required = true;
-    } else {
-      roleCol.style.display = "none";
-      templateRow.style.gridTemplateColumns = "1fr";
-      if (roleSelect) {
-        roleSelect.required = false;
-      }
-    }
+    roleCol.style.display = isMarketing ? "block" : "none";
+    if (roleSelect) roleSelect.required = isMarketing;
+    if (vmRoleCol) vmRoleCol.style.display = isVM ? "block" : "none";
+    if (vmRoleSelect) vmRoleSelect.required = isVM;
+    if (ghRoleCol) ghRoleCol.style.display = isGH ? "block" : "none";
+    if (ghRoleSelect) ghRoleSelect.required = isGH;
+    templateRow.style.gridTemplateColumns = (isMarketing || isVM || isGH) ? "1fr 1fr" : "1fr";
   }
 
   if (deptSelect) {

@@ -23,35 +23,126 @@ def _coerce_str(value: Any) -> str:
     return str(value).strip()
 
 
-def _extract_profile(payload: dict, fallback_email: str) -> dict:
-    """Best-effort field extraction from the StyleHR response."""
-    email = _coerce_str(
-        payload.get("email")
-        or payload.get("Email")
-        or payload.get("employee_email")
-        or fallback_email
-    ).lower()
-    full_name = _coerce_str(
-        payload.get("name")
-        or payload.get("full_name")
-        or payload.get("employee_name")
-        or payload.get("EmployeeName")
-        or fallback_email
-    )
-    employee_id = _coerce_str(
-        payload.get("employee_id")
-        or payload.get("emp_id")
-        or payload.get("EmployeeID")
-        or payload.get("employee_code")
-        or payload.get("id")
-    )
+def _extract_profile(data: dict, fallback_email: str) -> dict:
+    """Best-effort field extraction from the StyleHR response matching custom_login."""
+    if not isinstance(data, dict):
+        data = {}
+
+    # 1. Try to extract the firm abbreviation (prefix)
+    prefix = ""
+    if "store" in data and isinstance(data["store"], dict):
+        firm = data["store"].get("firm")
+        if isinstance(firm, dict):
+            prefix = firm.get("abbreviation") or firm.get("prefix") or ""
+
+    if not prefix:
+        for key in ["prefix", "firm_abbreviation", "abbreviation", "firm_prefix"]:
+            if key in data and data[key]:
+                prefix = str(data[key]).strip()
+                break
+
+    if not prefix:
+        for parent_key in ["user", "employee", "data", "profile", "firm", "store"]:
+            if parent_key in data and isinstance(data[parent_key], dict):
+                p_dict = data[parent_key]
+                for key in ["prefix", "firm_abbreviation", "abbreviation", "firm_prefix"]:
+                    if key in p_dict and p_dict[key]:
+                        prefix = str(p_dict[key]).strip()
+                        break
+                if prefix:
+                    break
+
+    # 2. Extract employee code
+    code = data.get("employee_code") or ""
+    if not code:
+        for parent_key in ["user", "employee", "data", "profile"]:
+            if parent_key in data and isinstance(data[parent_key], dict):
+                code = data[parent_key].get("employee_code") or data[parent_key].get("code") or ""
+                if code:
+                    break
+
+    # Build employee ID
+    emp_id = None
+    if code:
+        emp_id = str(code).strip()
+
+    # Fallback for emp_id if still not found
+    if not emp_id:
+        for key in ["employee_id", "emp_id", "employee_code", "emp_code", "code"]:
+            if key in data and data[key]:
+                emp_id = str(data[key]).strip()
+                break
+
+    if not emp_id and "@" not in fallback_email:
+        emp_id = fallback_email
+
+    # If prefix is present, format employee code with prefix (e.g. RR-9701 or 97-9701)
+    if emp_id and prefix:
+        prefix = str(prefix).strip()
+        if not (emp_id.lower().startswith(f"{prefix.lower()}-") or emp_id.lower() == prefix.lower()):
+            emp_id = f"{prefix}-{emp_id}"
+
+    # 3. Extract Email
+    retrieved_email = None
+    for key in ["email", "email_address", "official_email", "personal_email"]:
+        if key in data and data[key]:
+            retrieved_email = str(data[key]).strip().lower()
+            break
+    if not retrieved_email:
+        for parent_key in ["user", "employee", "data", "profile"]:
+            if parent_key in data and isinstance(data[parent_key], dict):
+                parent_data = data[parent_key]
+                for key in ["email", "email_address", "official_email", "personal_email"]:
+                    if key in parent_data and parent_data[key]:
+                        retrieved_email = str(parent_data[key]).strip().lower()
+                        break
+                if retrieved_email:
+                    break
+
+    email = retrieved_email if retrieved_email else (fallback_email.lower() if "@" in fallback_email else "")
+
+    # 4. Extract full name
+    full_name = ""
+    login_username = data.get("username") or ""
+    if login_username and "@" not in str(login_username) and not any(char.isdigit() for char in str(login_username)):
+        full_name = str(login_username).strip()
+
+    if not full_name:
+        for key in ["name", "full_name", "employee_name", "emp_name", "display_name", "displayName", "fullName"]:
+            if key in data and data[key]:
+                val = str(data[key]).strip()
+                if not val.upper().startswith("RR-") or not full_name:
+                    full_name = val
+                    if not val.upper().startswith("RR-"):
+                        break
+    if not full_name:
+        for parent_key in ["user", "employee", "data", "profile"]:
+            if parent_key in data and isinstance(data[parent_key], dict):
+                parent_data = data[parent_key]
+                for key in ["name", "full_name", "employee_name", "emp_name", "display_name", "displayName", "fullName"]:
+                    if key in parent_data and parent_data[key]:
+                        val = str(parent_data[key]).strip()
+                        if not val.upper().startswith("RR-") or not full_name:
+                            full_name = val
+                            if not val.upper().startswith("RR-"):
+                                break
+                if full_name and not full_name.upper().startswith("RR-"):
+                    break
+
+    if (not full_name or full_name.upper().startswith("RR-")) and email:
+        prefix_part = email.split("@")[0].split("+")[0]
+        cleaned = "".join(c if c.isalpha() else " " for c in prefix_part).strip()
+        name_from_email = " ".join(word.capitalize() for word in cleaned.split())
+        if name_from_email:
+            full_name = name_from_email
+
     phone = _coerce_str(
-        payload.get("phone") or payload.get("mobile") or payload.get("Mobile")
+        data.get("phone") or data.get("mobile") or data.get("Mobile")
     )
     return {
-        "email": email,
-        "full_name": full_name or email,
-        "employee_id": employee_id,
+        "email": email or fallback_email.lower(),
+        "full_name": full_name or email or fallback_email,
+        "employee_id": str(emp_id or "").strip(),
         "phone": phone,
     }
 
@@ -113,13 +204,13 @@ class StyleHRBackend(ModelBackend):
             user.save(update_fields=["password"])
         else:
             updates: list[str] = []
-            if profile["employee_id"] and not user.employee_id:
+            if profile["employee_id"] and (not user.employee_id or user.employee_id.isdigit() or user.employee_id != profile["employee_id"]):
                 user.employee_id = profile["employee_id"]
                 updates.append("employee_id")
             if profile["phone"] and not user.phone:
                 user.phone = profile["phone"]
                 updates.append("phone")
-            if profile["full_name"] and user.full_name in ("", user.email):
+            if profile["full_name"] and (not user.full_name or user.full_name == user.email or user.full_name.upper().startswith("RR-")):
                 user.full_name = profile["full_name"]
                 updates.append("full_name")
             if updates:

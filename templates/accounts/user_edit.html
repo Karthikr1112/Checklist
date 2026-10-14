@@ -17,7 +17,7 @@
       <h3 style="margin-top:0">Profile</h3>
       {% for f in form %}
         {% if f.name != 'stores' and f.name != 'all_stores_access' %}
-        <div class="form-group" {% if f.name == 'marketing_role' %}id="marketing_role_field" {% if target.role != 'MARKETING_TEAM' %}style="display:none;"{% endif %}{% endif %}>
+        <div class="form-group" {% if f.name == 'marketing_role' %}id="marketing_role_field" {% if target.role != 'MARKETING_TEAM' %}style="display:none;"{% endif %}{% endif %}{% if f.name == 'vm_role' %}id="vm_role_field" {% if target.role != 'VM_TEAM' %}style="display:none;"{% endif %}{% endif %}{% if f.name == 'gh_role' %}id="gh_role_field" {% if target.role != 'GROCERY_HOME' %}style="display:none;"{% endif %}{% endif %}>
           <label class="form-label">{{ f.label }}</label>
           {{ f }}
           {% if f.help_text %}<div class="muted mt-1" style="font-size:12px;">{{ f.help_text }}</div>{% endif %}
@@ -70,6 +70,8 @@
 document.addEventListener("DOMContentLoaded", function() {
   const roleSelect = document.querySelector('[name="role"]');
   const mRoleField = document.getElementById("marketing_role_field");
+  const vmRoleField = document.getElementById("vm_role_field");
+  const ghRoleField = document.getElementById("gh_role_field");
   const allStoresCheckbox = document.querySelector('[name="all_stores_access"]');
   const allStoresNotice = document.getElementById("all_stores_notice");
   const btnSelectAll = document.getElementById("btn-select-all");
@@ -82,6 +84,12 @@ document.addEventListener("DOMContentLoaded", function() {
       mRoleField.style.display = "block";
     } else {
       mRoleField.style.display = "none";
+    }
+    if (vmRoleField) {
+      vmRoleField.style.display = roleSelect.value === "VM_TEAM" ? "block" : "none";
+    }
+    if (ghRoleField) {
+      ghRoleField.style.display = roleSelect.value === "GROCERY_HOME" ? "block" : "none";
     }
   }
 

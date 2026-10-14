@@ -62,9 +62,9 @@
     <div class="filters">
       {% if is_admin %}
       <select id="cmFilter" class="form-select form-select-sm">
-        <option value="">All Cluster Managers</option>
+        <option value="">All Users</option>
         {% for cm in cluster_managers %}
-          <option value="{{ cm.id }}">{{ cm.full_name }}</option>
+          <option value="{{ cm.id }}">{{ cm.employee_label }}</option>
         {% endfor %}
       </select>
       {% endif %}
@@ -109,6 +109,10 @@
     <div class="modal-foot">
       <a id="m_open"  class="btn btn-secondary btn-sm"><i class="bi bi-eye"></i> Open</a>
       <a id="m_edit"  class="btn btn-secondary btn-sm"><i class="bi bi-pencil"></i> Edit</a>
+      <form id="m_deleteForm" method="post" style="margin:0" onsubmit="return confirm('Delete this plan?');">
+        {% csrf_token %}
+        <button class="btn btn-danger btn-sm"><i class="bi bi-trash"></i> Delete</button>
+      </form>
       <a id="m_visit" class="btn btn-primary   btn-sm" style="display:none"><i class="bi bi-clipboard-data"></i> Open Visit</a>
       <form id="m_startForm" method="post" style="margin:0;display:none">
         {% csrf_token %}
@@ -196,7 +200,12 @@
     document.getElementById('m_status').textContent = p.status_label;
     document.getElementById('m_notes').textContent = p.notes || '—';
     document.getElementById('m_open').href = p.detail_url;
-    document.getElementById('m_edit').href = p.edit_url;
+    const editBtn = document.getElementById('m_edit');
+    const deleteForm = document.getElementById('m_deleteForm');
+    editBtn.href = p.edit_url;
+    deleteForm.action = p.delete_url;
+    editBtn.style.display = p.can_edit ? '' : 'none';
+    deleteForm.style.display = p.can_edit ? '' : 'none';
 
     const startForm = document.getElementById('m_startForm');
     const visitBtn = document.getElementById('m_visit');

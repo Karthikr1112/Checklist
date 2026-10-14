@@ -20,7 +20,11 @@ class UserCreateForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ("email", "full_name", "phone", "role", "marketing_role")
+        fields = ("email", "full_name", "employee_id", "phone", "role", "marketing_role", "vm_role", "gh_role")
+        labels = {
+            "full_name": "Employee Name",
+            "employee_id": "Employee ID",
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -38,6 +42,16 @@ class UserCreateForm(forms.ModelForm):
             cleaned_data["marketing_role"] = ""
         elif not marketing_role:
             self.add_error("marketing_role", "Please select a Marketing Role for Marketing Team users.")
+        vm_role = cleaned_data.get("vm_role")
+        if role != Role.VM_TEAM:
+            cleaned_data["vm_role"] = ""
+        elif not vm_role:
+            self.add_error("vm_role", "Please select a VM Role for VM Team users.")
+        gh_role = cleaned_data.get("gh_role")
+        if role != Role.GROCERY_HOME:
+            cleaned_data["gh_role"] = ""
+        elif not gh_role:
+            self.add_error("gh_role", "Please select a Grocery & Home Role for Grocery & Home users.")
         return cleaned_data
 
     def save(self, commit: bool = True) -> User:
@@ -67,7 +81,11 @@ class UserEditForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ("email", "full_name", "phone", "role", "marketing_role", "all_stores_access", "is_active")
+        fields = ("email", "full_name", "employee_id", "phone", "role", "marketing_role", "vm_role", "gh_role", "all_stores_access", "is_active")
+        labels = {
+            "full_name": "Employee Name",
+            "employee_id": "Employee ID",
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -90,6 +108,16 @@ class UserEditForm(forms.ModelForm):
             cleaned_data["marketing_role"] = ""
         elif not marketing_role:
             self.add_error("marketing_role", "Please select a Marketing Role for Marketing Team users.")
+        vm_role = cleaned_data.get("vm_role")
+        if role != Role.VM_TEAM:
+            cleaned_data["vm_role"] = ""
+        elif not vm_role:
+            self.add_error("vm_role", "Please select a VM Role for VM Team users.")
+        gh_role = cleaned_data.get("gh_role")
+        if role != Role.GROCERY_HOME:
+            cleaned_data["gh_role"] = ""
+        elif not gh_role:
+            self.add_error("gh_role", "Please select a Grocery & Home Role for Grocery & Home users.")
         return cleaned_data
 
     @transaction.atomic

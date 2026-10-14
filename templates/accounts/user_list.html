@@ -5,7 +5,7 @@
 <div class="page-header">
   <div>
     <h1>Users</h1>
-    <p>People who can access Cluster Audit.
+    <p>People who can access Operation Audit.
       {% if pending_count %}
         <span class="badge badge-warning badge-dot">{{ pending_count }} pending approval</span>
       {% endif %}
@@ -15,17 +15,21 @@
 </div>
 <div class="card"><div class="table-wrap"><table class="table-clean">
   <thead><tr>
-    <th>Name</th><th>Email / Emp ID</th><th>Role</th><th>Source</th>
+    <th>Employee ID</th><th>Employee Name</th><th>Email</th><th>Role</th><th>Source</th>
     <th>Approval</th><th>Status</th><th class="text-right">Actions</th>
   </tr></thead>
   <tbody>
     {% for u in users %}
     <tr>
-      <td><div class="flex gap-2" style="align-items:center"><span class="avatar">{{ u.full_name|slice:":1"|upper }}</span> <strong>{{ u.full_name|default:u.email }}</strong></div></td>
+      <td>{% if u.employee_id %}<strong>{{ u.employee_id }}</strong>{% else %}<span class="muted">—</span>{% endif %}</td>
       <td>
-        <div>{{ u.email }}</div>
-        {% if u.employee_id %}<small class="muted">Emp #{{ u.employee_id }}</small>{% endif %}
+        {% if u.employee_name %}
+          <div class="flex gap-2" style="align-items:center"><span class="avatar">{{ u.employee_name|slice:":1"|upper }}</span> <strong>{{ u.employee_name }}</strong></div>
+        {% else %}
+          <span class="muted">—</span>
+        {% endif %}
       </td>
+      <td>{{ u.email }}</td>
       <td>
         {% if u.approval_status == 'PENDING' %}
           <form method="post" action="{% url 'accounts:user_approve' u.pk %}" class="flex gap-2" style="align-items:center;margin:0">
@@ -41,6 +45,10 @@
           <span class="badge badge-brand">{{ u.get_role_display }}</span>
           {% if u.is_marketing_team and u.marketing_role %}
             <span class="badge badge-neutral" style="margin-left:4px;"><i class="bi bi-award"></i> {{ u.marketing_role }}</span>
+          {% elif u.is_vm_team and u.vm_role %}
+            <span class="badge badge-neutral" style="margin-left:4px;"><i class="bi bi-award"></i> {{ u.vm_role }}</span>
+          {% elif u.is_grocery_home and u.gh_role %}
+            <span class="badge badge-neutral" style="margin-left:4px;"><i class="bi bi-award"></i> {{ u.gh_role }}</span>
           {% endif %}
         {% endif %}
       </td>

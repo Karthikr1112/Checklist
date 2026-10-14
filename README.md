@@ -53,6 +53,8 @@ python manage.py migrate
 python manage.py seed_checklist              # Cluster Manager checklist
 python manage.py seed_inventory_checklist    # Inventory Team checklist
 python manage.py seed_marketing_checklist    # Marketing Team checklists
+python manage.py seed_vm_checklist           # VM Team checklists (VM Manager, VM Executive)
+python manage.py seed_grocery_home_checklist # Grocery & Home checklists (Category Head - Grocery / Home, Business Head, Grocery & Home)
 python manage.py createsuperuser
 
 # 6. Run

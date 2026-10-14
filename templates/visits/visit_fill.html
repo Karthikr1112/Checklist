@@ -71,6 +71,24 @@
 </div>
 {% endfor %}
 
+{% if visit.is_vm_checklist %}
+<div class="card">
+  <div class="card-header"><i class="bi bi-journal-text"></i> Visit Summary</div>
+  <div class="card-body">
+    <form method="post" action="{% url 'visits:visit_summary_save' visit.pk %}" class="js-autosave-form">
+      {% csrf_token %}
+      <textarea name="summary" rows="6" class="form-control js-autosave-field"
+                placeholder="Top strengths, critical gaps, top 3 priorities, support / escalation required, next follow-up date…">{{ visit.summary }}</textarea>
+      <div class="flex mt-2" style="justify-content:flex-end">
+        <span class="js-autosave-status muted" style="font-size:12px">
+          <i class="bi bi-cloud-check"></i> Saved
+        </span>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 <form method="post" action="{% url 'visits:visit_submit' visit.pk %}" class="mt-4">
   {% csrf_token %}
   <button class="btn btn-success btn-lg btn-block"><i class="bi bi-send-check"></i> Submit Visit for Review</button>

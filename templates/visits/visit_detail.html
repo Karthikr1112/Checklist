@@ -3,19 +3,37 @@
 {% block crumb %}<a href="{% url 'visits:visit_list' %}">Visits</a> <i class="bi bi-chevron-right"></i> {{ visit.store.code }}{% endblock %}
 {% block content %}
 
+<div class="print-only" style="border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:14px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div>
+      <div style="font-size:18px;font-weight:700">Operation Audit — Store Visit Report</div>
+      <div style="font-size:12px">{{ visit.template.name }}</div>
+    </div>
+    <div style="font-size:11px;text-align:right">Printed {% now "d M Y, H:i" %}<br>by {{ user.employee_label }}</div>
+  </div>
+</div>
+
 <div class="page-header">
   <div>
     <h1>{{ visit.store.code }} · {{ visit.store.name }}</h1>
     <p>
-      {{ visit.visit_date|date:"d M Y" }} · {{ visit.get_audit_type_display }} · {{ visit.cluster_manager.full_name }}{% if visit.cluster_manager.marketing_role %} ({{ visit.cluster_manager.marketing_role }}){% endif %}
+      {{ visit.visit_date|date:"d M Y" }} · {{ visit.get_audit_type_display }} · {{ visit.cluster_manager.full_name }}{% if visit.cluster_manager.marketing_role %} ({{ visit.cluster_manager.marketing_role }}){% elif visit.cluster_manager.vm_role %} ({{ visit.cluster_manager.vm_role }}){% elif visit.cluster_manager.gh_role %} ({{ visit.cluster_manager.gh_role }}){% endif %}
       {% if visit.approved_by %}
         · <span style="color:var(--success);"><i class="bi bi-check-circle-fill"></i> Approved by {{ visit.approved_by.full_name }} on {{ visit.approved_at|date:"d M Y, H:i" }}</span>
       {% endif %}
     </p>
   </div>
   <div class="flex gap-2">
+    <button type="button" class="btn btn-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
     {% if visit.cluster_manager_id == user.id or user.is_admin_role %}
-      <a class="btn btn-secondary" href="{% url 'visits:visit_fill' visit.pk %}"><i class="bi bi-pencil"></i> Edit</a>
+      <a class="btn btn-secondary" href="{% url 'visits:visit_fill' visit.pk %}"><i class="bi bi-ui-checks"></i> Edit Answers</a>
+    {% endif %}
+    {% if user.is_admin_role or visit.cluster_manager_id == user.id and visit.status != 'APPROVED' %}
+      <a class="btn btn-secondary" href="{% url 'visits:visit_edit' visit.pk %}"><i class="bi bi-pencil"></i> Edit</a>
+      <form method="post" action="{% url 'visits:visit_delete' visit.pk %}" style="margin:0"
+            onsubmit="return confirm('Delete this visit and all its answers, photos and actions?');">
+        {% csrf_token %}<button class="btn btn-danger"><i class="bi bi-trash"></i> Delete</button>
+      </form>
     {% endif %}
     {% if visit.status == 'IN_PROGRESS' or visit.status == 'DRAFT' %}
       <form method="post" action="{% url 'visits:visit_submit' visit.pk %}" style="margin:0">
@@ -79,4 +97,25 @@
   </div>
 </div>
 {% endfor %}
+
+{% if visit.is_vm_checklist %}
+<div class="card">
+  <div class="card-header"><i class="bi bi-journal-text"></i> Visit Summary</div>
+  <div class="card-body">
+    {% if visit.summary %}
+      <div style="white-space:pre-line">{{ visit.summary }}</div>
+    {% else %}
+      <span class="muted">No summary added.</span>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="print-only" style="margin-top:36px;break-inside:avoid">
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;font-size:12px">
+    <div><div style="border-top:1px solid #111;padding-top:6px">Conducted by<br><strong>{{ visit.cluster_manager.employee_label }}</strong></div></div>
+    <div><div style="border-top:1px solid #111;padding-top:6px">Store Manager<br><strong>&nbsp;</strong></div></div>
+    <div><div style="border-top:1px solid #111;padding-top:6px">Approved by<br><strong>{% if visit.approved_by %}{{ visit.approved_by.employee_label }}{% else %}&nbsp;{% endif %}</strong></div></div>
+  </div>
+</div>
 {% endblock %}

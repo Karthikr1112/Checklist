@@ -66,3 +66,11 @@ class Store(BaseModel):
     @property
     def assigned_marketing(self):
         return self.assigned_users.filter(role="MARKETING_TEAM", is_active=True)
+
+    @property
+    def assigned_vm(self):
+        return self.assigned_users.filter(role="VM_TEAM", is_active=True)
+
+    @property
+    def assigned_grocery_home(self):
+        return self.assigned_users.filter(role="GROCERY_HOME", is_active=True)

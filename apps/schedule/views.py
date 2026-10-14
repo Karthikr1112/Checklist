@@ -33,7 +33,7 @@ def _can_edit(user, plan: VisitPlan) -> bool:
     return user.is_admin_role or plan.cluster_manager_id == user.id
 
 
-def _serialize(plan: VisitPlan) -> dict:
+def _serialize(plan: VisitPlan, user=None) -> dict:
     color = STATUS_COLORS.get(plan.status, STATUS_COLORS[PlanStatus.PLANNED])
     return {
         "id": str(plan.id),
@@ -46,7 +46,7 @@ def _serialize(plan: VisitPlan) -> dict:
         "extendedProps": {
             "store_code": plan.store.code,
             "store_name": plan.store.name,
-            "cluster_manager": plan.cluster_manager.full_name,
+            "cluster_manager": plan.cluster_manager.employee_label,
             "cluster_manager_id": str(plan.cluster_manager_id),
             "audit_type": plan.get_audit_type_display(),
             "status": plan.status,
@@ -55,6 +55,8 @@ def _serialize(plan: VisitPlan) -> dict:
             "visit_id": str(plan.visit_id) if plan.visit_id else None,
             "detail_url": reverse("schedule:plan_detail", args=[plan.id]),
             "edit_url":   reverse("schedule:plan_edit",   args=[plan.id]),
+            "delete_url": reverse("schedule:plan_delete", args=[plan.id]),
+            "can_edit": bool(user and _can_edit(user, plan)),
             "start_visit_url": reverse("schedule:plan_start_visit", args=[plan.id]),
             "reschedule_url": reverse("schedule:api_event_reschedule", args=[plan.id]),
             "visit_url": reverse("visits:visit_detail", args=[plan.visit_id]) if plan.visit_id else None,
@@ -67,7 +69,10 @@ def _serialize(plan: VisitPlan) -> dict:
 # ============================================================
 @login_required
 def calendar_view(request):
-    cms = User.objects.filter(is_active=True, role=Role.CLUSTER_MANAGER).order_by("full_name")
+    cms = User.objects.filter(
+        is_active=True,
+        role__in=[Role.CLUSTER_MANAGER, Role.ADMIN, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME],
+    ).order_by("employee_id", "full_name")
     return render(
         request,
         "schedule/calendar.html",
@@ -175,7 +180,7 @@ def api_events(request):
     if status:
         qs = qs.filter(status=status)
 
-    return JsonResponse([_serialize(p) for p in qs], safe=False)
+    return JsonResponse([_serialize(p, request.user) for p in qs], safe=False)
 
 
 @login_required
@@ -194,4 +199,4 @@ def api_event_reschedule(request, pk):
     plan.start_time = new_start.time().replace(microsecond=0)
     plan.end_time = new_end.time().replace(microsecond=0)
     plan.save(update_fields=["planned_date", "start_time", "end_time", "updated_at"])
-    return JsonResponse(_serialize(plan))
+    return JsonResponse(_serialize(plan, request.user))

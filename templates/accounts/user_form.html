@@ -6,7 +6,7 @@
 <div class="card" style="max-width:560px"><div class="card-body">
   <form method="post">{% csrf_token %}
     {% for f in form %}
-      <div class="form-group" {% if f.name == 'marketing_role' %}id="marketing_role_field" {% if form.role.value != 'MARKETING_TEAM' %}style="display:none;"{% endif %}{% endif %}>
+      <div class="form-group" {% if f.name == 'marketing_role' %}id="marketing_role_field" {% if form.role.value != 'MARKETING_TEAM' %}style="display:none;"{% endif %}{% endif %}{% if f.name == 'vm_role' %}id="vm_role_field" {% if form.role.value != 'VM_TEAM' %}style="display:none;"{% endif %}{% endif %}{% if f.name == 'gh_role' %}id="gh_role_field" {% if form.role.value != 'GROCERY_HOME' %}style="display:none;"{% endif %}{% endif %}>
         <label class="form-label">{{ f.label }}</label>
         {{ f }}
         {% if f.help_text %}<div class="muted mt-1" style="font-size:12px;">{{ f.help_text }}</div>{% endif %}
@@ -24,12 +24,20 @@
 document.addEventListener("DOMContentLoaded", function() {
   const roleSelect = document.querySelector('[name="role"]');
   const mRoleField = document.getElementById("marketing_role_field");
+  const vmRoleField = document.getElementById("vm_role_field");
+  const ghRoleField = document.getElementById("gh_role_field");
   function syncMarketing() {
     if (!roleSelect || !mRoleField) return;
     if (roleSelect.value === "MARKETING_TEAM") {
       mRoleField.style.display = "block";
     } else {
       mRoleField.style.display = "none";
+    }
+    if (vmRoleField) {
+      vmRoleField.style.display = roleSelect.value === "VM_TEAM" ? "block" : "none";
+    }
+    if (ghRoleField) {
+      ghRoleField.style.display = roleSelect.value === "GROCERY_HOME" ? "block" : "none";
     }
   }
   if (roleSelect) {

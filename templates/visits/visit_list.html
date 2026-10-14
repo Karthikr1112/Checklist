@@ -7,12 +7,89 @@
     <h1>Visits</h1>
     <p>All daily store-visit reports.</p>
   </div>
-  {% if user.is_admin_role or user.is_cluster_manager or user.is_inventory_team or user.is_marketing_team %}
+  {% if user.is_admin_role or user.is_cluster_manager or user.is_inventory_team or user.is_marketing_team or user.is_vm_team or user.is_grocery_home %}
     <a class="btn btn-primary" href="{% url 'visits:visit_start' %}"><i class="bi bi-plus-lg"></i> Start Visit</a>
   {% endif %}
 </div>
 
+<style>
+  .filter-bar { display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:10px 12px; align-items:end; }
+  .filter-bar .form-label { font-size:12px; margin-bottom:4px; }
+  .filter-bar .wide { grid-column: span 2; }
+  @media (max-width: 600px) { .filter-bar .wide { grid-column: auto; } }
+</style>
 <div class="card">
+  <div class="card-body">
+    <form method="get" class="filter-bar">
+      <div class="wide">
+        <label class="form-label" for="f_q">Search</label>
+        <input id="f_q" type="search" name="q" value="{{ filters.q }}" class="form-control" placeholder="Store, name, Emp ID or checklist">
+      </div>
+      <div>
+        <label class="form-label" for="f_store">Store</label>
+        <select id="f_store" name="store" class="form-select">
+          <option value="">All stores</option>
+          {% for code, name in store_options %}
+            <option value="{{ code }}" {% if filters.store == code %}selected{% endif %}>{{ code }} · {{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label" for="f_department">Department</label>
+        <select id="f_department" name="department" class="form-select">
+          <option value="">All departments</option>
+          {% for value, label in department_options %}
+            <option value="{{ value }}" {% if filters.department == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label" for="f_by">Conducted By</label>
+        <select id="f_by" name="conducted_by" class="form-select">
+          <option value="">Everyone</option>
+          {% for p in people_options %}
+            <option value="{{ p.pk }}" {% if filters.conducted_by == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.employee_label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label" for="f_status">Status</label>
+        <select id="f_status" name="status" class="form-select">
+          <option value="">All statuses</option>
+          {% for value, label in status_options %}
+            <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label" for="f_type">Audit Type</label>
+        <select id="f_type" name="audit_type" class="form-select">
+          <option value="">All types</option>
+          {% for value, label in audit_type_options %}
+            <option value="{{ value }}" {% if filters.audit_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label" for="f_from">From</label>
+        <input id="f_from" type="date" name="date_from" value="{{ filters.date_from }}" class="form-control">
+      </div>
+      <div>
+        <label class="form-label" for="f_to">To</label>
+        <input id="f_to" type="date" name="date_to" value="{{ filters.date_to }}" class="form-control">
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-funnel"></i> Filter</button>
+        {% if filters_active %}<a class="btn btn-ghost" href="{% url 'visits:visit_list' %}">Clear</a>{% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  {% if filters_active %}
+  <div class="card-header"><span>{{ page_obj.paginator.count }} visit{{ page_obj.paginator.count|pluralize }} match your filters</span></div>
+  {% endif %}
   <div class="table-wrap">
     <table class="table-clean">
       <thead><tr><th>Date</th><th>Store</th><th>Audit Type</th><th>Conducted By</th><th>Status</th><th class="text-right">Compliance</th><th></th></tr></thead>
@@ -26,6 +103,10 @@
             {{ v.cluster_manager.full_name }}
             {% if v.cluster_manager.marketing_role %}
               <div class="muted" style="font-size:11px;">{{ v.cluster_manager.marketing_role }}</div>
+            {% elif v.cluster_manager.vm_role %}
+              <div class="muted" style="font-size:11px;">{{ v.cluster_manager.vm_role }}</div>
+            {% elif v.cluster_manager.gh_role %}
+              <div class="muted" style="font-size:11px;">{{ v.cluster_manager.gh_role }}</div>
             {% endif %}
           </td>
           <td>
@@ -36,13 +117,43 @@
             {% endwith %}
           </td>
           <td class="text-right"><strong>{{ v.compliance_pct }}%</strong></td>
-          <td class="text-right"><a class="btn btn-secondary btn-sm" href="{% url 'visits:visit_detail' v.pk %}">Open</a></td>
+          <td class="text-right">
+            <div class="flex gap-2" style="justify-content:flex-end;align-items:center">
+              <a class="btn btn-secondary btn-sm" href="{% url 'visits:visit_detail' v.pk %}">Open</a>
+              {% if user.is_admin_role or v.cluster_manager_id == user.id and v.status != 'APPROVED' %}
+                <a class="btn btn-secondary btn-sm" href="{% url 'visits:visit_edit' v.pk %}" title="Edit"><i class="bi bi-pencil"></i> Edit</a>
+                <form method="post" action="{% url 'visits:visit_delete' v.pk %}" style="margin:0"
+                      onsubmit="return confirm('Delete this visit and all its answers, photos and actions?');">
+                  {% csrf_token %}
+                  <button class="btn btn-danger btn-sm" title="Delete"><i class="bi bi-trash"></i> Delete</button>
+                </form>
+              {% endif %}
+            </div>
+          </td>
         </tr>
         {% empty %}
-        <tr><td colspan="7"><div class="empty-state"><i class="bi bi-clipboard"></i>No visits yet.</div></td></tr>
+        <tr><td colspan="7"><div class="empty-state"><i class="bi bi-clipboard"></i>{% if filters_active %}No visits match these filters.{% else %}No visits yet.{% endif %}</div></td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="flex" style="justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--gray-200, #e5e7eb);flex-wrap:wrap">
+    <span class="muted" style="font-size:13px">
+      Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} visits
+    </span>
+    <div class="flex gap-2" style="align-items:center">
+      {% if page_obj.has_previous %}
+        <a class="btn btn-secondary btn-sm" href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page=1"><i class="bi bi-chevron-double-left"></i></a>
+        <a class="btn btn-secondary btn-sm" href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-left"></i> Prev</a>
+      {% endif %}
+      <span style="font-size:13px">Page <strong>{{ page_obj.number }}</strong> of {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <a class="btn btn-secondary btn-sm" href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page={{ page_obj.next_page_number }}">Next <i class="bi bi-chevron-right"></i></a>
+        <a class="btn btn-secondary btn-sm" href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page={{ page_obj.paginator.num_pages }}"><i class="bi bi-chevron-double-right"></i></a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

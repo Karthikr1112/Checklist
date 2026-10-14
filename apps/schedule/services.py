@@ -20,6 +20,14 @@ def start_visit_from_plan(*, plan: VisitPlan, user) -> VisitPlan:
             templates = templates.filter(audience=ChecklistTemplate.Audience.INVENTORY_TEAM)
         elif user.is_marketing_team:
             templates = templates.filter(audience=ChecklistTemplate.Audience.MARKETING_TEAM)
+        elif user.is_vm_team:
+            templates = templates.filter(audience=ChecklistTemplate.Audience.VM_TEAM)
+            if user.vm_role:
+                templates = templates.filter(name__icontains=user.vm_role)
+        elif user.is_grocery_home:
+            templates = templates.filter(audience=ChecklistTemplate.Audience.GROCERY_HOME)
+            if user.gh_role:
+                templates = templates.filter(name__icontains=user.gh_role)
         else:
             templates = templates.filter(audience=ChecklistTemplate.Audience.CLUSTER_MANAGER)
     template = templates.order_by("-version").first()

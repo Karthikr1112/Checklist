@@ -14,7 +14,7 @@ def stores_visible_to(user: User) -> QuerySet[Store]:
     if user.is_admin_role or getattr(user, "all_stores_access", False):
         return qs
 
-    if user.is_marketing_team and getattr(user, "is_marketing_head", False):
+    if (user.is_marketing_team and getattr(user, "is_marketing_head", False)) or getattr(user, "is_vm_manager", False) or getattr(user, "is_business_head", False):
         assigned = user.assigned_stores.filter(is_active=True)
         if assigned.exists():
             return assigned

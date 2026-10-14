@@ -9,21 +9,37 @@
   <tbody>
     {% for a in items %}
     <tr>
-      <td><strong>{{ a.title }}</strong>{% if a.description %}<div class="muted" style="font-size:12.5px">{{ a.description|truncatechars:80 }}</div>{% endif %}</td>
-      <td>{{ a.response.visit.store.code }}</td>
+      <td>
+        <a href="{% url 'actions:action_detail' a.pk %}"><strong>{{ a.title }}</strong></a>
+        {% if not a.seen_at and a.status != 'CLOSED' and a.status != 'NOT_REQUIRED' %}<span class="badge badge-danger" style="margin-left:6px">New</span>{% endif %}
+        {% if a.description %}<div class="muted" style="font-size:12.5px">{{ a.description|truncatechars:80 }}</div>{% endif %}
+      </td>
+      <td><strong>{{ a.response.visit.store.code }}</strong> · {{ a.response.visit.store.name }}</td>
       <td>
         {% if a.status == 'OPEN' %}<span class="badge badge-warning badge-dot">Open</span>
         {% elif a.status == 'IN_PROGRESS' %}<span class="badge badge-info badge-dot">In Progress</span>
         {% elif a.status == 'CLOSED' %}<span class="badge badge-success badge-dot">Closed</span>
         {% else %}<span class="badge badge-neutral badge-dot">Not Required</span>{% endif %}
       </td>
-      <td>{{ a.due_date|default:'—' }}</td>
+      <td>
+        {% if a.due_date %}
+          {% if a.due_date < today and a.status == 'OPEN' or a.due_date < today and a.status == 'IN_PROGRESS' %}
+            <span style="color:var(--danger);font-weight:600">{{ a.due_date|date:"d M Y" }}</span>
+            <div style="font-size:11px;color:var(--danger)">Overdue</div>
+          {% else %}{{ a.due_date|date:"d M Y" }}{% endif %}
+        {% else %}—{% endif %}
+      </td>
       <td class="text-right">
-        {% if a.status != 'CLOSED' %}
-          <form method="post" action="{% url 'actions:action_close' a.pk %}" style="display:inline">
-            {% csrf_token %}<button class="btn btn-success btn-sm"><i class="bi bi-check2"></i> Close</button>
-          </form>
-        {% endif %}
+        <div class="flex gap-2" style="justify-content:flex-end;align-items:center">
+          <a class="btn btn-secondary btn-sm" href="{% url 'actions:action_detail' a.pk %}"><i class="bi bi-eye"></i> View</a>
+          {% if a.status != 'CLOSED' and a.status != 'NOT_REQUIRED' %}
+            <form method="post" action="{% url 'actions:action_close' a.pk %}" style="margin:0">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button class="btn btn-success btn-sm"><i class="bi bi-check2"></i> Close</button>
+            </form>
+          {% endif %}
+        </div>
       </td>
     </tr>
     {% empty %}<tr><td colspan="5"><div class="empty-state"><i class="bi bi-check2-all"></i>No actions assigned to you. Nice!</div></td></tr>{% endfor %}

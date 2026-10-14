@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}{{ item.title }}{% endblock %}
+{% block crumb %}{% if item.owner_id == user.id %}<a href="{% url 'actions:my_actions' %}">My Actions</a>{% else %}<a href="{% url 'actions:all_actions' %}">All Actions</a>{% endif %} <i class="bi bi-chevron-right"></i> {{ item.title }}{% endblock %}
+{% block content %}
+<style>
+  .kv { display:grid; grid-template-columns: 160px 1fr; gap:10px 16px; font-size:14px; }
+  .kv .k { color: var(--gray-500); }
+  .action-grid { display:grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap:16px; align-items:start; }
+  @media (max-width: 900px) { .action-grid { grid-template-columns: 1fr; } .kv { grid-template-columns: 120px 1fr; } }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>{{ item.title }}</h1>
+    <p>
+      {% if item.status == 'OPEN' %}<span class="badge badge-warning badge-dot">Open</span>
+      {% elif item.status == 'IN_PROGRESS' %}<span class="badge badge-info badge-dot">In Progress</span>
+      {% elif item.status == 'CLOSED' %}<span class="badge badge-success badge-dot">Closed</span>
+      {% else %}<span class="badge badge-neutral badge-dot">Not Required</span>{% endif %}
+      {% if is_overdue %}<span class="badge badge-danger badge-dot">Overdue</span>{% endif %}
+      · Created {{ item.created_at|date:"d M Y, H:i" }}
+    </p>
+  </div>
+</div>
+
+<div class="action-grid">
+  <div>
+    <div class="card">
+      <div class="card-header"><i class="bi bi-info-circle"></i> Action Details</div>
+      <div class="card-body">
+        <div class="kv">
+          <span class="k">Description</span>
+          <span style="white-space:pre-line">{{ item.description|default:"—" }}</span>
+          <span class="k">Owner</span>
+          <span><strong>{{ item.owner.employee_label }}</strong></span>
+          <span class="k">Due Date</span>
+          <span {% if is_overdue %}style="color:var(--danger);font-weight:600"{% endif %}>{{ item.due_date|date:"d M Y"|default:"—" }}</span>
+          <span class="k">Status</span>
+          <span>{{ item.get_status_display }}</span>
+          {% if item.closed_at %}
+            <span class="k">Closed On</span>
+            <span>{{ item.closed_at|date:"d M Y, H:i" }}</span>
+          {% endif %}
+          {% if item.closure_note %}
+            <span class="k">Closure Note</span>
+            <span style="white-space:pre-line">{{ item.closure_note }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><i class="bi bi-ui-checks"></i> Checklist Point</div>
+      <div class="card-body">
+        <div class="kv">
+          <span class="k">Question</span>
+          <span><span class="q-code-pill">{{ response.question.code }}</span> {{ response.question.text }}</span>
+          <span class="k">Section</span>
+          <span>{{ response.question.section.name }}</span>
+          <span class="k">Answer</span>
+          <span>
+            {% if response.response == 'YES' %}<span class="badge badge-success">Yes</span>
+            {% elif response.response == 'NO' %}<span class="badge badge-danger">No</span>
+            {% elif response.response == 'NA' %}<span class="badge badge-neutral">NA</span>
+            {% else %}<span class="muted">Not answered</span>{% endif %}
+          </span>
+          <span class="k">Observation</span>
+          <span style="white-space:pre-line">{{ response.observation|default:"—" }}</span>
+        </div>
+        {% if response.photos.all %}
+          <div class="flex gap-2 mt-3" style="flex-wrap:wrap">
+            {% for p in response.photos.all %}
+              <a href="{{ p.image.url }}" target="_blank" title="{{ p.caption }}"><img src="{{ p.image.url }}" class="thumb" alt="{{ p.caption }}"></a>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-header"><i class="bi bi-shop"></i> Visit</div>
+      <div class="card-body">
+        <div class="kv" style="grid-template-columns:110px 1fr">
+          <span class="k">Store</span>
+          <span><strong>{{ visit.store.code }}</strong> · {{ visit.store.name }}</span>
+          <span class="k">Visit Date</span>
+          <span>{{ visit.visit_date|date:"d M Y" }}</span>
+          <span class="k">Checklist</span>
+          <span>{{ visit.template.name }}</span>
+          <span class="k">Audit Type</span>
+          <span>{{ visit.get_audit_type_display }}</span>
+          <span class="k">Conducted By</span>
+          <span>{{ visit.cluster_manager.employee_label }}</span>
+        </div>
+      </div>
+    </div>
+
+    {% if can_update %}
+    <div class="card">
+      <div class="card-header"><i class="bi bi-arrow-repeat"></i> Update Status</div>
+      <div class="card-body">
+        <form method="post" action="{% url 'actions:action_update' item.pk %}">
+          {% csrf_token %}
+          <div class="form-group">
+            <label class="form-label" for="id_status">Status</label>
+            <select name="status" id="id_status" class="form-select">
+              {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if item.status == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="id_closure_note">Note</label>
+            <textarea name="closure_note" id="id_closure_note" rows="4" class="form-control"
+                      placeholder="What was done to fix this?">{{ item.closure_note }}</textarea>
+          </div>
+          <button class="btn btn-primary btn-block"><i class="bi bi-check2"></i> Save</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

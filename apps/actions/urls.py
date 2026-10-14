@@ -8,5 +8,7 @@ urlpatterns = [
     path("", views.all_actions, name="all_actions"),
     path("mine/", views.my_actions, name="my_actions"),
     path("response/<uuid:response_pk>/new/", views.action_create, name="action_create"),
+    path("<uuid:pk>/", views.action_detail, name="action_detail"),
+    path("<uuid:pk>/update/", views.action_update, name="action_update"),
     path("<uuid:pk>/close/", views.action_close, name="action_close"),
 ]

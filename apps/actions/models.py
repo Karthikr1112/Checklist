@@ -28,6 +28,9 @@ class ActionItem(BaseModel):
     )
     closure_note = models.TextField(blank=True)
     closed_at = models.DateTimeField(null=True, blank=True)
+    seen_at = models.DateTimeField(
+        null=True, blank=True, help_text="When the owner first saw this action (blank = new)."
+    )
 
     class Meta:
         ordering = ("-created_at",)

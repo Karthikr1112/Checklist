@@ -34,8 +34,9 @@ class VisitPlanForm(forms.ModelForm):
         self.fields["status"].choices = PlanStatus.choices
         self.fields["cluster_manager"].queryset = User.objects.filter(
             is_active=True,
-            role__in=[Role.CLUSTER_MANAGER, Role.ADMIN, Role.INVENTORY_TEAM, Role.MARKETING_TEAM],
+            role__in=[Role.CLUSTER_MANAGER, Role.ADMIN, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME],
         )
+        self.fields["cluster_manager"].label_from_instance = lambda u: u.employee_label
         self.fields["store"].queryset = Store.objects.filter(is_active=True)
         if user is not None and not user.is_admin_role:
             # Non-admins can only plan for themselves

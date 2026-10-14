@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Edit Visit · {{ visit.store.code }}{% endblock %}
+{% block crumb %}<a href="{% url 'visits:visit_list' %}">Visits</a> <i class="bi bi-chevron-right"></i> <a href="{% url 'visits:visit_detail' visit.pk %}">{{ visit.store.code }}</a> <i class="bi bi-chevron-right"></i> Edit{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Edit Visit</h1>
+    <p>{{ visit.template.name }} · change the store, date or audit type.</p>
+  </div>
+  <a class="btn btn-secondary" href="{% url 'visits:visit_fill' visit.pk %}"><i class="bi bi-ui-checks"></i> Edit checklist answers</a>
+</div>
+
+<div class="card" style="max-width:640px"><div class="card-body">
+  <form method="post">{% csrf_token %}
+    {% for f in form %}
+      <div class="form-group">
+        <label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>
+        {{ f }}
+        {% if f.errors %}<div class="form-error">{{ f.errors|striptags }}</div>{% endif %}
+      </div>
+    {% endfor %}
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-primary"><i class="bi bi-check2"></i> Save</button>
+      <a class="btn btn-ghost" href="{% url 'visits:visit_detail' visit.pk %}">Cancel</a>
+      <button class="btn btn-danger" style="margin-left:auto" formnovalidate
+              formaction="{% url 'visits:visit_delete' visit.pk %}"
+              onclick="return confirm('Delete this visit and all its answers, photos and actions?');"><i class="bi bi-trash"></i> Delete</button>
+    </div>
+  </form>
+</div></div>
+{% endblock %}

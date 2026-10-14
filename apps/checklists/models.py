@@ -11,6 +11,8 @@ class ChecklistTemplate(BaseModel):
         CLUSTER_MANAGER = "CLUSTER_MANAGER", _("Cluster Manager")
         INVENTORY_TEAM = "INVENTORY_TEAM", _("Inventory Team")
         MARKETING_TEAM = "MARKETING_TEAM", _("Marketing Team")
+        VM_TEAM = "VM_TEAM", _("VM Team")
+        GROCERY_HOME = "GROCERY_HOME", _("Grocery & Home")
         STORE_MANAGER = "STORE_MANAGER", _("Store Manager")
 
     name = models.CharField(max_length=120)

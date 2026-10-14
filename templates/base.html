@@ -4,12 +4,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}Dashboard{% endblock %} · Cluster Audit</title>
+  <title>{% block title %}Dashboard{% endblock %} · Operation Audit</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
-  <link rel="stylesheet" href="{% static 'css/app.css' %}" />
+  {# Bump ?v= when app.css changes so browsers don't keep a stale cached copy. #}
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=3" />
   {% block head_extra %}{% endblock %}
 </head>
 <body>

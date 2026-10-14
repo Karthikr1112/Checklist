@@ -17,3 +17,4 @@ class ActionItemForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["owner"].queryset = User.objects.filter(is_active=True)
+        self.fields["owner"].label_from_instance = lambda u: u.employee_label

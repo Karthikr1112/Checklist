@@ -51,6 +51,8 @@ class Visit(BaseModel):
     na_count = models.PositiveSmallIntegerField(default=0)
     compliance_pct = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
+    summary = models.TextField(blank=True, help_text="Overall visit summary (VM Team checklists).")
+
     submitted_at = models.DateTimeField(null=True, blank=True)
     approved_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey(
@@ -87,12 +89,30 @@ class Visit(BaseModel):
             or bool(getattr(self.cluster_manager, "marketing_role", ""))
         )
 
+    @property
+    def is_vm_checklist(self) -> bool:
+        return (
+            self.template.audience == ChecklistTemplate.Audience.VM_TEAM
+            or getattr(self.cluster_manager, "role", "") == "VM_TEAM"
+        )
+
+    @property
+    def is_grocery_home_checklist(self) -> bool:
+        return (
+            self.template.audience == ChecklistTemplate.Audience.GROCERY_HOME
+            or getattr(self.cluster_manager, "role", "") == "GROCERY_HOME"
+        )
+
     def can_be_approved_by(self, user) -> bool:
         if not user or not user.is_authenticated or not getattr(user, "is_approved", True):
             return False
         if getattr(user, "is_admin_role", False):
             return True
         if getattr(user, "is_marketing_head", False) and self.is_marketing_checklist:
+            return True
+        if getattr(user, "is_vm_manager", False) and self.is_vm_checklist:
+            return True
+        if getattr(user, "is_business_head", False) and self.is_grocery_home_checklist:
             return True
         return False
 
