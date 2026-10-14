@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block crumb %}
+<a href="{% url 'checklists:template_list' %}">Checklists</a>
+<i class="bi bi-chevron-right"></i>
+<a href="{% url 'checklists:template_detail' template.pk %}">{{ template.name }}</a>
+<i class="bi bi-chevron-right"></i>
+{{ title }}
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ title }}</h1>
+    <p>{{ template.name }}</p>
+  </div>
+</div>
+<div class="card" style="max-width:540px">
+  <div class="card-body">
+    <form method="post">{% csrf_token %}
+      {% for f in form %}
+        <div class="form-group">
+          <label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>
+          {{ f }}
+          {% if f.help_text %}<small class="muted">{{ f.help_text }}</small>{% endif %}
+          {% if f.errors %}<div class="form-error">{{ f.errors|striptags }}</div>{% endif %}
+        </div>
+      {% endfor %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger"><i class="bi bi-exclamation-circle"></i><div>{{ form.non_field_errors|striptags }}</div></div>
+      {% endif %}
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check2"></i> Save Section</button>
+        <a class="btn btn-ghost" href="{% url 'checklists:template_detail' template.pk %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

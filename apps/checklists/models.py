@@ -34,6 +34,12 @@ class ChecklistTemplate(BaseModel):
     def __str__(self) -> str:
         return f"{self.name} v{self.version}"
 
+    @property
+    def question_count(self) -> int:
+        if hasattr(self, "_prefetched_objects_cache") and "sections" in self._prefetched_objects_cache:
+            return sum(len(s.questions.all()) for s in self.sections.all())
+        return Question.objects.filter(section__template=self).count()
+
 
 class Section(BaseModel):
     template = models.ForeignKey(ChecklistTemplate, on_delete=models.CASCADE, related_name="sections")
