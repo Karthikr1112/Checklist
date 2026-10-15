@@ -36,6 +36,11 @@ class VisitPlan(BaseModel):
         max_length=16, choices=PlanStatus.choices, default=PlanStatus.PLANNED, db_index=True
     )
     notes = models.TextField(blank=True)
+    edit_reason = models.TextField(
+        blank=True,
+        default="",
+        help_text=_("Reason provided when this plan was last edited."),
+    )
 
     visit = models.OneToOneField(
         Visit,
@@ -66,4 +71,5 @@ class VisitPlan(BaseModel):
         ]
 
     def __str__(self) -> str:  # pragma: no cover
-        return f"{self.cluster_manager_id} @ {self.store.code} on {self.planned_date} {self.start_time}"
+        store_code = getattr(getattr(self, "store", None), "code", "?")
+        return f"{self.cluster_manager_id} @ {store_code} on {self.planned_date} {self.start_time}"

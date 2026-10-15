@@ -68,6 +68,7 @@ def _serialize(plan: VisitPlan, user=None) -> dict:
             "status": plan.status,
             "status_label": plan.get_status_display(),
             "notes": plan.notes,
+            "edit_reason": plan.edit_reason,
             "visit_id": str(plan.visit_id) if plan.visit_id else None,
             "detail_url": reverse("schedule:plan_detail", args=[plan.id]),
             "edit_url":   reverse("schedule:plan_edit",   args=[plan.id]),
@@ -143,11 +144,14 @@ def plan_edit(request, pk):
         before = _plan_snapshot(plan)
         form = VisitPlanForm(request.POST, instance=plan, user=request.user)
         if form.is_valid():
-            form.save()
+            plan = form.save()
             changes = diff(before, _plan_snapshot(plan))
+            edit_reason = form.cleaned_data.get("edit_reason", "").strip()
+            details = f"Reason: {edit_reason}"
             if changes:
-                log_event(request, Action.PLAN_UPDATED, plan, label=_plan_label(plan),
-                          details="Changed: " + ", ".join(changes), changes=changes)
+                details += " · Changed: " + ", ".join(changes)
+            log_event(request, Action.PLAN_UPDATED, plan, label=_plan_label(plan),
+                      details=details, changes=changes)
             messages.success(request, "Plan updated.")
             return redirect("schedule:plan_detail", pk=plan.pk)
     else:

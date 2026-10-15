@@ -20,12 +20,14 @@ class VisitPlanForm(forms.ModelForm):
             "audit_type",
             "status",
             "notes",
+            "edit_reason",
         )
         widgets = {
             "planned_date": forms.DateInput(attrs={"type": "date"}),
             "start_time": forms.TimeInput(attrs={"type": "time"}),
             "end_time": forms.TimeInput(attrs={"type": "time"}),
             "notes": forms.Textarea(attrs={"rows": 2}),
+            "edit_reason": forms.Textarea(attrs={"rows": 2, "placeholder": "Explain why this scheduled plan is being edited..."}),
         }
 
     def __init__(self, *args, user=None, **kwargs):
@@ -44,6 +46,26 @@ class VisitPlanForm(forms.ModelForm):
             self.fields["cluster_manager"].initial = user
             self.fields["cluster_manager"].widget = forms.HiddenInput()
             self.fields["store"].queryset = stores_visible_to(user)
+
+        is_edit = bool(self.instance and not self.instance._state.adding)
+        if is_edit:
+            self.fields["edit_reason"].required = True
+            self.fields["edit_reason"].label = "Reason for Edit"
+            self.fields["edit_reason"].widget.attrs.update({
+                "placeholder": "Explain why this scheduled plan is being edited (mandatory)...",
+                "required": "required",
+            })
+            self.fields["edit_reason"].help_text = "Mandatory: explain why you are editing this scheduled plan."
+        else:
+            if "edit_reason" in self.fields:
+                del self.fields["edit_reason"]
+
+    def clean_edit_reason(self):
+        reason = self.cleaned_data.get("edit_reason", "").strip()
+        is_edit = bool(self.instance and not self.instance._state.adding)
+        if is_edit and not reason:
+            raise forms.ValidationError("Please provide a reason why you are editing this scheduled plan.")
+        return reason
 
     def clean(self):
         cleaned = super().clean()

@@ -105,6 +105,7 @@
       <div class="modal-row"><span class="k">Audit Type</span><span id="m_type">—</span></div>
       <div class="modal-row"><span class="k">Status</span><span id="m_status">—</span></div>
       <div class="modal-row"><span class="k">Notes</span><span id="m_notes">—</span></div>
+      <div class="modal-row" id="m_reason_row" style="display:none"><span class="k">Edit Reason</span><span id="m_reason">—</span></div>
     </div>
     <div class="modal-foot">
       <a id="m_open"  class="btn btn-secondary btn-sm"><i class="bi bi-eye"></i> Open</a>
@@ -199,6 +200,14 @@
     document.getElementById('m_type').textContent = p.audit_type;
     document.getElementById('m_status').textContent = p.status_label;
     document.getElementById('m_notes').textContent = p.notes || '—';
+    const reasonRow = document.getElementById('m_reason_row');
+    const reasonEl = document.getElementById('m_reason');
+    if (p.edit_reason) {
+      reasonRow.style.display = '';
+      reasonEl.textContent = p.edit_reason;
+    } else {
+      reasonRow.style.display = 'none';
+    }
     document.getElementById('m_open').href = p.detail_url;
     const editBtn = document.getElementById('m_edit');
     const deleteForm = document.getElementById('m_deleteForm');

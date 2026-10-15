@@ -34,10 +34,18 @@
       <span class="badge {% if s == 'COMPLETED' %}badge-success{% elif s == 'CHECKED_IN' %}badge-warning{% elif s == 'MISSED' %}badge-danger{% elif s == 'CANCELLED' %}badge-neutral{% else %}badge-brand{% endif %} badge-dot">{{ plan.get_status_display }}</span>
       {% endwith %}
     </div>
-    <div style="padding:10px 0">
+    <div style="padding:10px 0{% if plan.edit_reason %};border-bottom:1px dashed var(--gray-100){% endif %}">
       <div class="muted mb-2">Notes</div>
       <div>{{ plan.notes|default:"—"|linebreaksbr }}</div>
     </div>
+    {% if plan.edit_reason %}
+    <div style="padding:10px 0">
+      <div class="muted mb-1">Reason for Last Edit</div>
+      <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:6px;padding:8px 12px;color:#92400e;font-size:13px;">
+        <i class="bi bi-info-circle me-1"></i> {{ plan.edit_reason|linebreaksbr }}
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

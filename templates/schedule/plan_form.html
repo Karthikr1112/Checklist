@@ -9,9 +9,12 @@
     {% for f in form %}
       {% if f.is_hidden %}{{ f }}{% else %}
       <div class="form-group">
-        <label class="form-label">{{ f.label }}</label>
+        <label class="form-label" for="{{ f.id_for_label }}">
+          {{ f.label }}
+          {% if f.field.required %}<span class="text-danger" style="color:var(--danger,#ef4444);font-weight:bold;">*</span>{% endif %}
+        </label>
         {{ f }}
-        {% if f.help_text %}<small class="muted">{{ f.help_text }}</small>{% endif %}
+        {% if f.help_text %}<small class="muted" style="display:block;margin-top:4px;">{{ f.help_text }}</small>{% endif %}
         {% if f.errors %}<div class="form-error">{{ f.errors|striptags }}</div>{% endif %}
       </div>
       {% endif %}
