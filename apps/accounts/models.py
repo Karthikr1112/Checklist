@@ -16,6 +16,7 @@ EMPLOYEE_CODE_RE = re.compile(r"^[A-Za-z0-9]{1,6}-\d+$")
 
 class Role(models.TextChoices):
     ADMIN = "ADMIN", _("Admin / HQ")
+    COO = "COO", _("COO")
     CLUSTER_MANAGER = "CLUSTER_MANAGER", _("Cluster Manager")
     STORE_MANAGER = "STORE_MANAGER", _("Store Manager")
     INVENTORY_TEAM = "INVENTORY_TEAM", _("Inventory Team")
@@ -144,6 +145,16 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Convenience role helpers ------------------------------------------------
     @property
     def is_admin_role(self) -> bool:
+        """Full access: sees every record, and can approve any checklist."""
+        return self.role in (Role.ADMIN, Role.COO) or self.is_superuser
+
+    @property
+    def is_coo(self) -> bool:
+        return self.role == Role.COO
+
+    @property
+    def is_hq_admin(self) -> bool:
+        """Admin / HQ only: user management, audit log and Django admin (not the COO)."""
         return self.role == Role.ADMIN or self.is_superuser
 
     @property

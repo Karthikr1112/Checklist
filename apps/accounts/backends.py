@@ -147,11 +147,43 @@ def _extract_profile(data: dict, fallback_email: str) -> dict:
     }
 
 
+class EmployeeIdBackend(ModelBackend):
+    """App sign-in against local passwords: a local account's name (e.g. "karthik", "Allen Samuel"),
+    or an Employee ID (e.g. RR-21747, or just 21747) + password."""
+
+    def authenticate(self, request, username: str | None = None, password: str | None = None, **kwargs):
+        username = (username or "").strip()
+        if not username or not password or "@" in username:
+            return None
+        # Local accounts by name; only when exactly one local account has that name.
+        matches = list(User.objects.filter(source=UserSource.LOCAL, full_name__iexact=username)[:2])
+        if len(matches) != 1:
+            matches = list(User.objects.filter(employee_id__iexact=username)[:2])
+        if not matches:
+            # Typing only the number finds "<PREFIX>-<number>", but only if exactly one user has it.
+            matches = list(User.objects.filter(employee_id__iendswith=f"-{username}")[:2])
+        if len(matches) != 1:
+            return None
+        user = matches[0]
+        if user.check_password(password) and self.user_can_authenticate(user):
+            return user
+        return None
+
+
 class StyleHRBackend(ModelBackend):
     """Authenticate against the StyleHR API and mirror the user locally."""
 
     def authenticate(self, request, username: str | None = None, password: str | None = None, **kwargs):
         if not username or not password:
+            return None
+        # Locally created accounts sign in locally; never send their password to StyleHR.
+        typed = username.strip()
+        local_lookup = User.objects.filter(source=UserSource.LOCAL)
+        if (
+            local_lookup.filter(full_name__iexact=typed).exists()
+            or local_lookup.filter(email__iexact=typed).exists()
+            or local_lookup.filter(employee_id__iexact=typed).exclude(employee_id="").exists()
+        ):
             return None
         url = getattr(settings, "STYLEHR_API_URL", "").strip()
         if not url:

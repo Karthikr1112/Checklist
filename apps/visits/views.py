@@ -11,6 +11,7 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Role, User
 from apps.checklists.models import ChecklistTemplate
+from apps.core.audit import Action, diff, log_event
 from apps.core.permissions import role_required
 
 from apps.schedule.models import PlanStatus, VisitPlan
@@ -27,8 +28,41 @@ def _ensure_can_edit(user, visit: Visit) -> bool:
     return visit.cluster_manager_id == user.id
 
 
+def _visit_label(visit: Visit) -> str:
+    return f"{visit.store.code} · {visit.store.name} ({visit.visit_date:%d %b %Y})"
+
+
+def _visit_snapshot(visit: Visit) -> dict:
+    return {
+        "Store": f"{visit.store.code} · {visit.store.name}",
+        "Visit date": f"{visit.visit_date:%d %b %Y}",
+        "Audit type": visit.get_audit_type_display(),
+    }
+
+
+def _answer_snapshot(response: VisitResponse) -> dict:
+    return {
+        "Answer": response.get_response_display() if response.response else "Not answered",
+        "Observation": response.observation,
+    }
+
+
+def _log_answer_change(request, response: VisitResponse, before: dict) -> None:
+    """Record edits made to an audit that has already been submitted. Changes made while
+    first filling it in are not logged (72 questions autosaving would flood the log)."""
+    visit = response.visit
+    if not visit.submitted_at:
+        return
+    changes = diff(before, _answer_snapshot(response))
+    if changes:
+        log_event(
+            request, Action.ANSWER_CHANGED, visit, label=_visit_label(visit), changes=changes,
+            details=f"{response.question.code} · {response.question.text[:90]}",
+        )
+
+
 def _can_manage(user, visit: Visit) -> bool:
-    """Edit details / delete: admins always; the visit's owner until it's approved."""
+    """Edit details: admins always; the visit's owner until it's approved. (Delete is admin-only.)"""
     if user.is_admin_role:
         return True
     return visit.cluster_manager_id == user.id and visit.status != VisitStatus.APPROVED
@@ -112,7 +146,7 @@ def visit_list(request):
     )
 
 
-@role_required(Role.ADMIN, Role.CLUSTER_MANAGER, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME)
+@role_required(Role.ADMIN, Role.COO, Role.CLUSTER_MANAGER, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME)
 def visit_start(request):
     if request.method == "POST":
         form = StartVisitForm(request.POST, user=request.user)
@@ -124,6 +158,8 @@ def visit_start(request):
                 visit_date=form.cleaned_data["visit_date"],
                 audit_type=form.cleaned_data["audit_type"],
             )
+            log_event(request, Action.VISIT_STARTED, visit, label=_visit_label(visit),
+                      details=f"{visit.template.name} · {visit.get_audit_type_display()}")
             messages.success(request, "Visit started.")
             return redirect("visits:visit_fill", pk=visit.pk)
     else:
@@ -170,11 +206,14 @@ def visit_fill(request, pk):
 @login_required
 @require_POST
 def response_save(request, response_pk):
-    response = get_object_or_404(VisitResponse.objects.select_related("visit"), pk=response_pk)
+    response = get_object_or_404(VisitResponse.objects.select_related("visit", "question"), pk=response_pk)
     if not _ensure_can_edit(request.user, response.visit):
         return HttpResponseForbidden()
 
     is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+
+    # Read these before building the form: validating it updates `response` in place.
+    before = _answer_snapshot(response)
 
     form = VisitResponseForm(request.POST, instance=response)
     if form.is_valid():
@@ -184,6 +223,7 @@ def response_save(request, response_pk):
             evidence={k: v for k, v in request.POST.items() if k.startswith("evidence__")},
             observation=form.cleaned_data["observation"],
         )
+        _log_answer_change(request, response, before)
         if is_ajax:
             visit = response.visit
             return JsonResponse({
@@ -208,9 +248,14 @@ def visit_edit(request, pk):
     if not _can_manage(request.user, visit):
         return HttpResponseForbidden("You cannot edit this visit.")
     if request.method == "POST":
+        before = _visit_snapshot(visit)
         form = VisitEditForm(request.POST, instance=visit, user=request.user)
         if form.is_valid():
             form.save()
+            changes = diff(before, _visit_snapshot(visit))
+            if changes:
+                log_event(request, Action.VISIT_UPDATED, visit, label=_visit_label(visit),
+                          details="Changed: " + ", ".join(changes), changes=changes)
             messages.success(request, "Visit updated.")
             return redirect("visits:visit_detail", pk=visit.pk)
     else:
@@ -222,11 +267,14 @@ def visit_edit(request, pk):
 @require_POST
 def visit_delete(request, pk):
     visit = get_object_or_404(visits_visible_to(request.user), pk=pk)
-    if not _can_manage(request.user, visit):
-        return HttpResponseForbidden("You cannot delete this visit.")
+    if not request.user.is_admin_role:
+        return HttpResponseForbidden("Only admins can delete visits.")
     # A schedule plan linked to this visit goes back to Planned rather than pointing at nothing.
     VisitPlan.objects.filter(visit=visit).update(visit=None, status=PlanStatus.PLANNED)
     label = f"{visit.store.code} on {visit.visit_date:%d %b %Y}"
+    log_event(request, Action.VISIT_DELETED, visit, label=_visit_label(visit),
+              details=f"{visit.template.name} · by {visit.cluster_manager.employee_label} · "
+                      f"{visit.get_status_display()} · {visit.answered_count}/{visit.total_questions} answered")
     visit.delete()
     messages.success(request, f"Visit for {label} deleted.")
     return redirect("visits:visit_list")
@@ -276,6 +324,10 @@ def visit_submit(request, pk):
         return HttpResponseForbidden()
     if request.method == "POST":
         submit_visit(visit)
+        visit.refresh_from_db()
+        log_event(request, Action.VISIT_SUBMITTED, visit, label=_visit_label(visit),
+                  details=f"{visit.template.name} · {visit.answered_count}/{visit.total_questions} answered · "
+                          f"{visit.compliance_pct}% compliance")
         messages.success(request, "Visit submitted for review.")
     return redirect("visits:visit_detail", pk=visit.pk)
 
@@ -287,5 +339,8 @@ def visit_approve(request, pk):
         return HttpResponseForbidden("You do not have permission to approve this visit.")
     if request.method == "POST" and visit.status == VisitStatus.SUBMITTED:
         approve_visit(visit, request.user)
+        log_event(request, Action.VISIT_APPROVED, visit, label=_visit_label(visit),
+                  details=f"{visit.template.name} · conducted by {visit.cluster_manager.employee_label} · "
+                          f"{visit.compliance_pct}% compliance")
         messages.success(request, f"Visit for {visit.store.code} approved.")
     return redirect("visits:visit_detail", pk=visit.pk)

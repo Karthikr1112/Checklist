@@ -24,4 +24,5 @@ urlpatterns = [
     path("users/<uuid:pk>/edit/", views.user_edit, name="user_edit"),
     path("users/<uuid:pk>/approve/", views.user_approve, name="user_approve"),
     path("users/<uuid:pk>/reject/", views.user_reject, name="user_reject"),
+    path("audit-log/", views.audit_log, name="audit_log"),
 ]

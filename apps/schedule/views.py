@@ -12,11 +12,27 @@ from django.utils.dateparse import parse_date, parse_time
 from django.views.decorators.http import require_http_methods
 
 from apps.accounts.models import Role, User
+from apps.core.audit import Action, diff, log_event
 
 from .forms import VisitPlanForm
 from .models import PlanStatus, VisitPlan
 from .selectors import plans_visible_to
 from .services import start_visit_from_plan
+
+
+def _plan_label(plan: VisitPlan) -> str:
+    return f"{plan.store.code} · {plan.store.name} ({plan.planned_date:%d %b %Y})"
+
+
+def _plan_snapshot(plan: VisitPlan) -> dict:
+    return {
+        "Store": f"{plan.store.code} · {plan.store.name}",
+        "Date": f"{plan.planned_date:%d %b %Y}",
+        "Time": f"{plan.start_time:%H:%M}-{plan.end_time:%H:%M}",
+        "Assigned to": plan.cluster_manager.employee_label,
+        "Audit type": plan.get_audit_type_display(),
+        "Status": plan.get_status_display(),
+    }
 
 
 # ---------- Color palette for the calendar (status-based) ----------
@@ -71,7 +87,7 @@ def _serialize(plan: VisitPlan, user=None) -> dict:
 def calendar_view(request):
     cms = User.objects.filter(
         is_active=True,
-        role__in=[Role.CLUSTER_MANAGER, Role.ADMIN, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME],
+        role__in=[Role.CLUSTER_MANAGER, Role.ADMIN, Role.COO, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME],
     ).order_by("employee_id", "full_name")
     return render(
         request,
@@ -109,6 +125,8 @@ def plan_create(request):
             if not request.user.is_admin_role:
                 plan.cluster_manager = request.user
             plan.save()
+            log_event(request, Action.PLAN_CREATED, plan, label=_plan_label(plan),
+                      details=f"{plan.start_time:%H:%M}-{plan.end_time:%H:%M} · for {plan.cluster_manager.employee_label}")
             messages.success(request, "Visit planned.")
             return redirect("schedule:calendar")
     else:
@@ -122,9 +140,14 @@ def plan_edit(request, pk):
     if not _can_edit(request.user, plan):
         return HttpResponseForbidden()
     if request.method == "POST":
+        before = _plan_snapshot(plan)
         form = VisitPlanForm(request.POST, instance=plan, user=request.user)
         if form.is_valid():
             form.save()
+            changes = diff(before, _plan_snapshot(plan))
+            if changes:
+                log_event(request, Action.PLAN_UPDATED, plan, label=_plan_label(plan),
+                          details="Changed: " + ", ".join(changes), changes=changes)
             messages.success(request, "Plan updated.")
             return redirect("schedule:plan_detail", pk=plan.pk)
     else:
@@ -138,6 +161,8 @@ def plan_delete(request, pk):
     plan = get_object_or_404(VisitPlan, pk=pk)
     if not _can_edit(request.user, plan):
         return HttpResponseForbidden()
+    log_event(request, Action.PLAN_DELETED, plan, label=_plan_label(plan),
+              details=f"for {plan.cluster_manager.employee_label} · {plan.get_status_display()}")
     plan.delete()
     messages.success(request, "Plan removed.")
     return redirect("schedule:calendar")
@@ -154,6 +179,10 @@ def plan_start_visit(request, pk):
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect("schedule:plan_detail", pk=plan.pk)
+    visit = plan.visit
+    log_event(request, Action.VISIT_STARTED, visit,
+              label=f"{visit.store.code} · {visit.store.name} ({visit.visit_date:%d %b %Y})",
+              details=f"{visit.template.name} · started from schedule plan")
     messages.success(request, "Visit started from plan.")
     return redirect("visits:visit_fill", pk=plan.visit_id)
 
@@ -195,8 +224,13 @@ def api_event_reschedule(request, pk):
         new_end = datetime.fromisoformat(payload["end"])
     except (KeyError, ValueError, json.JSONDecodeError):
         return HttpResponseBadRequest("Invalid payload")
+    before = _plan_snapshot(plan)
     plan.planned_date = new_start.date()
     plan.start_time = new_start.time().replace(microsecond=0)
     plan.end_time = new_end.time().replace(microsecond=0)
     plan.save(update_fields=["planned_date", "start_time", "end_time", "updated_at"])
+    changes = diff(before, _plan_snapshot(plan))
+    if changes:
+        log_event(request, Action.PLAN_RESCHEDULED, plan, label=_plan_label(plan), changes=changes,
+                  details="Moved on the calendar")
     return JsonResponse(_serialize(plan, request.user))

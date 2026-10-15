@@ -15,7 +15,7 @@
     </button>
     <div class="dd-menu">
       <a class="dd-item" href="{% url 'accounts:profile' %}"><i class="bi bi-person"></i> Profile</a>
-      {% if user.is_admin_role %}
+      {% if user.is_hq_admin %}
       <a class="dd-item" href="/admin/"><i class="bi bi-gear"></i> Admin</a>
       {% endif %}
       <div class="dd-divider"></div>

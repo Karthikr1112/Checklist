@@ -133,6 +133,8 @@ LOGOUT_REDIRECT_URL = "accounts:login"
 
 AUTHENTICATION_BACKENDS = [
     "apps.accounts.backends.StyleHRBackend",
+    "apps.accounts.backends.EmployeeIdBackend",
+    # Email + password: only used by /admin/ now (the app login form rejects emails).
     "django.contrib.auth.backends.ModelBackend",
 ]
 

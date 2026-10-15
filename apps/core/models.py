@@ -66,3 +66,52 @@ class BaseModel(UUIDModel, TimeStampedModel, SoftDeleteModel):
 
     class Meta:
         abstract = True
+
+
+class AuditLog(models.Model):
+    """Who did what, to which record, and when. Labels are stored as text so an entry
+    still reads correctly after the user or record it mentions has been deleted."""
+
+    class Action(models.TextChoices):
+        LOGIN = "LOGIN", "Logged in"
+        LOGIN_FAILED = "LOGIN_FAILED", "Login failed"
+        LOGOUT = "LOGOUT", "Logged out"
+        USER_CREATED = "USER_CREATED", "User created"
+        USER_UPDATED = "USER_UPDATED", "User updated"
+        USER_APPROVED = "USER_APPROVED", "User approved"
+        USER_REJECTED = "USER_REJECTED", "User rejected"
+        VISIT_STARTED = "VISIT_STARTED", "Visit started"
+        VISIT_UPDATED = "VISIT_UPDATED", "Visit edited"
+        VISIT_SUBMITTED = "VISIT_SUBMITTED", "Visit submitted"
+        VISIT_APPROVED = "VISIT_APPROVED", "Visit approved"
+        VISIT_DELETED = "VISIT_DELETED", "Visit deleted"
+        ANSWER_CHANGED = "ANSWER_CHANGED", "Answer changed after submit"
+        ACTION_CREATED = "ACTION_CREATED", "Action created"
+        ACTION_UPDATED = "ACTION_UPDATED", "Action status changed"
+        PLAN_CREATED = "PLAN_CREATED", "Plan created"
+        PLAN_UPDATED = "PLAN_UPDATED", "Plan edited"
+        PLAN_RESCHEDULED = "PLAN_RESCHEDULED", "Plan rescheduled"
+        PLAN_DELETED = "PLAN_DELETED", "Plan deleted"
+        CHECKLIST_CHANGED = "CHECKLIST_CHANGED", "Checklist changed"
+        STORE_CHANGED = "STORE_CHANGED", "Store changed"
+
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    actor = models.ForeignKey(
+        "accounts.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="audit_entries"
+    )
+    actor_label = models.CharField(max_length=200, blank=True)
+    action = models.CharField(max_length=32, choices=Action.choices, db_index=True)
+    object_type = models.CharField(max_length=40, blank=True)
+    object_id = models.CharField(max_length=64, blank=True, db_index=True)
+    object_label = models.CharField(max_length=255, blank=True)
+    details = models.TextField(blank=True)
+    changes = models.JSONField(default=dict, blank=True, help_text="Field: [before, after]")
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [models.Index(fields=("actor", "created_at"))]
+
+    def __str__(self) -> str:
+        return f"{self.created_at:%Y-%m-%d %H:%M} {self.actor_label} {self.get_action_display()} {self.object_label}"

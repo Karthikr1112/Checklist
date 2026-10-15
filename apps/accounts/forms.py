@@ -5,14 +5,22 @@ from django.db import transaction
 
 from apps.stores.models import Store
 
-from .models import Role, User
+from .models import Role, User, UserSource
 
 
 class EmailAuthenticationForm(AuthenticationForm):
+    """App login: StyleHR staff use their Employee ID; locally created accounts use their name."""
+
     username = forms.CharField(
-        label="Email or Employee ID",
+        label="Employee ID",
         widget=forms.TextInput(attrs={"autofocus": True, "autocomplete": "username"}),
     )
+
+    def clean_username(self):
+        username = (self.cleaned_data.get("username") or "").strip()
+        if "@" in username:
+            raise forms.ValidationError("Please sign in with your Employee ID or username, not your email address.")
+        return username
 
 
 class UserCreateForm(forms.ModelForm):

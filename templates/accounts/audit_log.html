@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Audit Log{% endblock %}
+{% block crumb %}Audit Log{% endblock %}
+{% block content %}
+<style>
+  .filter-bar { display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:10px 12px; align-items:end; }
+  .filter-bar .form-label { font-size:12px; margin-bottom:4px; }
+  .filter-bar .wide { grid-column: span 2; }
+  @media (max-width: 600px) { .filter-bar .wide { grid-column: auto; } }
+  .audit-changes { margin-top:6px; font-size:12px; color:var(--gray-600); }
+  .audit-changes div { margin-top:2px; }
+  .audit-changes .old { text-decoration: line-through; color: var(--gray-400); }
+  .audit-changes .new { color: var(--gray-900); font-weight:500; }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>Audit Log</h1>
+    <p>Who did what, and when. Visible to admins only.</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="filter-bar">
+      <div class="wide">
+        <label class="form-label" for="a_q">Search</label>
+        <input id="a_q" type="search" name="q" value="{{ filters.q }}" class="form-control" placeholder="Name, Emp ID, store or details">
+      </div>
+      <div>
+        <label class="form-label" for="a_user">User</label>
+        <select id="a_user" name="user" class="form-select">
+          <option value="">Everyone</option>
+          {% for p in people_options %}
+            <option value="{{ p.pk }}" {% if filters.user == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.employee_label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label" for="a_action">Action</label>
+        <select id="a_action" name="action" class="form-select">
+          <option value="">All actions</option>
+          {% for value, label in action_options %}
+            <option value="{{ value }}" {% if filters.action == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label" for="a_from">From</label>
+        <input id="a_from" type="date" name="date_from" value="{{ filters.date_from }}" class="form-control">
+      </div>
+      <div>
+        <label class="form-label" for="a_to">To</label>
+        <input id="a_to" type="date" name="date_to" value="{{ filters.date_to }}" class="form-control">
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-funnel"></i> Filter</button>
+        {% if filters_active %}<a class="btn btn-ghost" href="{% url 'accounts:audit_log' %}">Clear</a>{% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  {% if filters_active %}
+  <div class="card-header"><span>{{ page_obj.paginator.count }} entr{{ page_obj.paginator.count|pluralize:"y,ies" }} match your filters</span></div>
+  {% endif %}
+  <div class="table-wrap">
+    <table class="table-clean">
+      <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Record</th><th>Details</th></tr></thead>
+      <tbody>
+        {% for e in page_obj %}
+        <tr>
+          <td style="white-space:nowrap">{{ e.created_at|date:"d M Y" }}<div class="muted" style="font-size:12px">{{ e.created_at|date:"H:i:s" }}</div></td>
+          <td><strong>{{ e.actor_label|default:"—" }}</strong></td>
+          <td>
+            <span class="badge {% if e.action == 'LOGIN_FAILED' or e.action == 'VISIT_DELETED' or e.action == 'PLAN_DELETED' or e.action == 'USER_REJECTED' %}badge-danger{% elif e.action == 'ANSWER_CHANGED' %}badge-warning{% elif e.action == 'VISIT_APPROVED' or e.action == 'USER_APPROVED' or e.action == 'LOGIN' %}badge-success{% elif e.action == 'VISIT_SUBMITTED' or e.action == 'USER_UPDATED' or e.action == 'CHECKLIST_CHANGED' %}badge-info{% else %}badge-neutral{% endif %}">
+              {{ e.get_action_display }}
+            </span>
+          </td>
+          <td>{{ e.object_label|default:"—" }}</td>
+          <td>
+            {{ e.details|default:"" }}
+            {% if e.changes %}
+              <div class="audit-changes">
+                {% for field, values in e.changes.items %}
+                  <div><span class="muted">{{ field }}:</span> <span class="old">{{ values.0|default:"(blank)" }}</span> → <span class="new">{{ values.1|default:"(blank)" }}</span></div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5"><div class="empty-state"><i class="bi bi-journal-text"></i>{% if filters_active %}No entries match these filters.{% else %}No activity recorded yet.{% endif %}</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="flex" style="justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--gray-200, #e5e7eb);flex-wrap:wrap">
+    <span class="muted" style="font-size:13px">Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}</span>
+    <div class="flex gap-2" style="align-items:center">
+      {% if page_obj.has_previous %}
+        <a class="btn btn-secondary btn-sm" href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page=1"><i class="bi bi-chevron-double-left"></i></a>
+        <a class="btn btn-secondary btn-sm" href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-left"></i> Prev</a>
+      {% endif %}
+      <span style="font-size:13px">Page <strong>{{ page_obj.number }}</strong> of {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <a class="btn btn-secondary btn-sm" href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page={{ page_obj.next_page_number }}">Next <i class="bi bi-chevron-right"></i></a>
+        <a class="btn btn-secondary btn-sm" href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page={{ page_obj.paginator.num_pages }}"><i class="bi bi-chevron-double-right"></i></a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

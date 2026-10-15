@@ -17,7 +17,7 @@ def notifications(request) -> dict:
         status__in=[ActionStatus.OPEN, ActionStatus.IN_PROGRESS],
     ).count()
     pending_users = (
-        User.objects.filter(approval_status=ApprovalStatus.PENDING).count() if user.is_admin_role else 0
+        User.objects.filter(approval_status=ApprovalStatus.PENDING).count() if user.is_hq_admin else 0
     )
     return {
         "notif_new_actions": new_actions,

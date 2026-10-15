@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Role
+from apps.core.audit import Action, log_event
 from apps.core.permissions import role_required
 
 from .forms import QuestionForm, SectionForm
@@ -55,7 +56,7 @@ def template_detail(request, pk):
     )
 
 
-@role_required(Role.ADMIN)
+@role_required(Role.ADMIN, Role.COO)
 def section_create(request, template_pk):
     template = get_object_or_404(ChecklistTemplate, pk=template_pk)
     if request.method == "POST":
@@ -64,6 +65,8 @@ def section_create(request, template_pk):
             section = form.save(commit=False)
             section.template = template
             section.save()
+            log_event(request, Action.CHECKLIST_CHANGED, template, label=str(template),
+                      details=f"Section added: {section.name}")
             messages.success(request, f"Section '{section.name}' added.")
             return redirect("checklists:template_detail", pk=template.pk)
     else:
@@ -76,7 +79,7 @@ def section_create(request, template_pk):
     )
 
 
-@role_required(Role.ADMIN)
+@role_required(Role.ADMIN, Role.COO)
 @require_POST
 def section_delete(request, pk):
     section = get_object_or_404(Section.objects.select_related("template"), pk=pk)
@@ -91,13 +94,15 @@ def section_delete(request, pk):
         return redirect("checklists:template_detail", pk=template_pk)
     try:
         section.delete()
+        log_event(request, Action.CHECKLIST_CHANGED, section.template, label=str(section.template),
+                  details=f"Section deleted: {section_name}")
         messages.success(request, f"Section '{section_name}' deleted.")
     except ProtectedError:
         messages.error(request, f"Cannot delete section '{section_name}' due to related records.")
     return redirect("checklists:template_detail", pk=template_pk)
 
 
-@role_required(Role.ADMIN)
+@role_required(Role.ADMIN, Role.COO)
 def question_create(request, template_pk):
     template = get_object_or_404(ChecklistTemplate, pk=template_pk)
     section_id = request.GET.get("section")
@@ -109,6 +114,8 @@ def question_create(request, template_pk):
         form = QuestionForm(request.POST, template=template)
         if form.is_valid():
             question = form.save()
+            log_event(request, Action.CHECKLIST_CHANGED, template, label=str(template),
+                      details=f"Question added: {question.code} · {question.text[:120]}")
             messages.success(request, f"Question '{question.code}' added.")
             return redirect("checklists:template_detail", pk=template.pk)
     else:
@@ -124,14 +131,20 @@ def question_create(request, template_pk):
     )
 
 
-@role_required(Role.ADMIN)
+@role_required(Role.ADMIN, Role.COO)
 def question_update(request, pk):
     question = get_object_or_404(Question.objects.select_related("section__template"), pk=pk)
     template = question.section.template
     if request.method == "POST":
+        original = Question.objects.get(pk=question.pk)  # the form updates `question` in place while validating
         form = QuestionForm(request.POST, instance=question, template=template)
         if form.is_valid():
+            changed = list(form.changed_data)
             form.save()
+            if changed:
+                log_event(request, Action.CHECKLIST_CHANGED, template, label=str(template),
+                          details=f"Question edited: {question.code} ({', '.join(changed)})",
+                          changes={f: [getattr(original, f, ""), getattr(question, f, "")] for f in changed})
             messages.success(request, f"Question '{question.code}' updated.")
             return redirect("checklists:template_detail", pk=template.pk)
     else:
@@ -143,7 +156,7 @@ def question_update(request, pk):
     )
 
 
-@role_required(Role.ADMIN)
+@role_required(Role.ADMIN, Role.COO)
 @require_POST
 def question_delete(request, pk):
     question = get_object_or_404(Question.objects.select_related("section__template"), pk=pk)
@@ -157,6 +170,8 @@ def question_delete(request, pk):
         return redirect("checklists:template_detail", pk=template_pk)
     try:
         question.delete()
+        log_event(request, Action.CHECKLIST_CHANGED, question.section.template, label=str(question.section.template),
+                  details=f"Question deleted: {code}")
         messages.success(request, f"Question '{code}' deleted.")
     except ProtectedError:
         messages.error(request, f"Cannot delete question '{code}' because it is referenced by existing visits.")

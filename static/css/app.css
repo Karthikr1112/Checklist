@@ -367,8 +367,9 @@ select.form-select-sm { padding: 6px 10px; font-size: 12.5px; }
   content: ""; position: absolute; inset: 9px;
   background: #fff; border-radius: 50%;
 }
+.ring > * { position: relative; z-index: 1; } /* keep the % above the white centre */
 .ring .ring-val {
-  position: relative; font-size: 22px; font-weight: 700;
+  position: relative; font-size: 19px; font-weight: 700;
   color: var(--gray-900); letter-spacing: -0.02em;
 }
 .ring .ring-label { position: relative; font-size: 11px; color: var(--gray-500); margin-top: 2px; }

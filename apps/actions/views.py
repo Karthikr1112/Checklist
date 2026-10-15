@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
+from apps.core.audit import Action, diff, log_event
 from apps.visits.models import VisitResponse
 from apps.visits.selectors import visits_visible_to
 
@@ -26,11 +27,20 @@ def _can_update(user, item: ActionItem) -> bool:
     return user.is_admin_role or user.id in (item.owner_id, item.response.visit.cluster_manager_id)
 
 
-def _set_status(item: ActionItem, status: str, closure_note: str) -> None:
+def _action_label(item: ActionItem) -> str:
+    return f"{item.title} · {item.response.visit.store.code}"
+
+
+def _set_status(request, item: ActionItem, status: str, closure_note: str) -> None:
+    before = {"Status": item.get_status_display(), "Note": item.closure_note}
     item.status = status
     item.closure_note = closure_note
     item.closed_at = timezone.now() if status in (ActionStatus.CLOSED, ActionStatus.NOT_REQUIRED) else None
     item.save(update_fields=["status", "closure_note", "closed_at", "updated_at"])
+    changes = diff(before, {"Status": item.get_status_display(), "Note": item.closure_note})
+    if changes:
+        log_event(request, Action.ACTION_UPDATED, item, label=_action_label(item),
+                  details=f"Now {item.get_status_display()} · owner {item.owner.employee_label}", changes=changes)
 
 
 def _redirect_back(request, item: ActionItem):
@@ -104,7 +114,7 @@ def action_update(request, pk):
     if status not in ActionStatus.values:
         messages.error(request, "Please choose a valid status.")
         return redirect("actions:action_detail", pk=item.pk)
-    _set_status(item, status, request.POST.get("closure_note", "").strip())
+    _set_status(request, item, status, request.POST.get("closure_note", "").strip())
     messages.success(request, f"Action marked {item.get_status_display()}.")
     return redirect("actions:action_detail", pk=item.pk)
 
@@ -120,6 +130,9 @@ def action_create(request, response_pk):
             if item.owner_id == request.user.id:
                 item.seen_at = timezone.now()  # nothing new about an action you assigned yourself
             item.save()
+            log_event(request, Action.ACTION_CREATED, item, label=_action_label(item),
+                      details=f"{response.question.code} · owner {item.owner.employee_label}"
+                              + (f" · due {item.due_date:%d %b %Y}" if item.due_date else ""))
             messages.success(request, "Action created.")
             return redirect("visits:visit_fill", pk=response.visit_id)
     else:
@@ -133,6 +146,6 @@ def action_close(request, pk):
     item = get_object_or_404(ActionItem.objects.select_related("response__visit"), pk=pk)
     if not _can_update(request.user, item):
         return HttpResponseForbidden("You cannot close this action.")
-    _set_status(item, ActionStatus.CLOSED, request.POST.get("closure_note", "").strip())
+    _set_status(request, item, ActionStatus.CLOSED, request.POST.get("closure_note", "").strip())
     messages.success(request, "Action closed.")
     return _redirect_back(request, item)
