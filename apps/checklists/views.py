@@ -56,7 +56,7 @@ def template_detail(request, pk):
     )
 
 
-@role_required(Role.ADMIN, Role.COO)
+@role_required(Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER)
 def section_create(request, template_pk):
     template = get_object_or_404(ChecklistTemplate, pk=template_pk)
     if request.method == "POST":
@@ -79,7 +79,7 @@ def section_create(request, template_pk):
     )
 
 
-@role_required(Role.ADMIN, Role.COO)
+@role_required(Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER)
 @require_POST
 def section_delete(request, pk):
     section = get_object_or_404(Section.objects.select_related("template"), pk=pk)
@@ -102,7 +102,7 @@ def section_delete(request, pk):
     return redirect("checklists:template_detail", pk=template_pk)
 
 
-@role_required(Role.ADMIN, Role.COO)
+@role_required(Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER)
 def question_create(request, template_pk):
     template = get_object_or_404(ChecklistTemplate, pk=template_pk)
     section_id = request.GET.get("section")
@@ -131,7 +131,7 @@ def question_create(request, template_pk):
     )
 
 
-@role_required(Role.ADMIN, Role.COO)
+@role_required(Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER)
 def question_update(request, pk):
     question = get_object_or_404(Question.objects.select_related("section__template"), pk=pk)
     template = question.section.template
@@ -156,7 +156,7 @@ def question_update(request, pk):
     )
 
 
-@role_required(Role.ADMIN, Role.COO)
+@role_required(Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER)
 @require_POST
 def question_delete(request, pk):
     question = get_object_or_404(Question.objects.select_related("section__template"), pk=pk)

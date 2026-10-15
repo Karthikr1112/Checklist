@@ -88,7 +88,7 @@ def _serialize(plan: VisitPlan, user=None) -> dict:
 def calendar_view(request):
     cms = User.objects.filter(
         is_active=True,
-        role__in=[Role.CLUSTER_MANAGER, Role.ADMIN, Role.COO, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME],
+        role__in=[Role.CLUSTER_MANAGER, Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME],
     ).order_by("employee_id", "full_name")
     return render(
         request,

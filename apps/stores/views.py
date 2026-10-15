@@ -17,7 +17,7 @@ def store_list(request):
     return render(request, "stores/store_list.html", {"stores": stores})
 
 
-@role_required(Role.ADMIN, Role.COO)
+@role_required(Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER)
 def store_create(request):
     if request.method == "POST":
         form = StoreForm(request.POST)
@@ -31,7 +31,7 @@ def store_create(request):
     return render(request, "stores/store_form.html", {"form": form, "title": "Add Store"})
 
 
-@role_required(Role.ADMIN, Role.COO)
+@role_required(Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER)
 def store_update(request, pk):
     store = get_object_or_404(Store, pk=pk)
     if request.method == "POST":

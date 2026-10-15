@@ -22,7 +22,7 @@
     <div class="flex gap-2 mt-4">
       <button class="btn btn-primary"><i class="bi bi-check2"></i> Save</button>
       <a class="btn btn-ghost" href="{% url 'visits:visit_detail' visit.pk %}">Cancel</a>
-      {% if user.is_admin_role %}
+      {% if user.is_hq_admin %}
       <button class="btn btn-danger" style="margin-left:auto" formnovalidate
               formaction="{% url 'visits:visit_delete' visit.pk %}"
               onclick="return confirm('Delete this visit and all its answers, photos and actions?');"><i class="bi bi-trash"></i> Delete</button>

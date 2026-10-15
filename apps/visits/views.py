@@ -23,7 +23,9 @@ from .services import approve_visit, save_response, start_visit, submit_visit
 
 
 def _ensure_can_edit(user, visit: Visit) -> bool:
-    if user.is_admin_role:
+    """Fill in answers: admins, and whoever conducted the visit.
+    The COO / Professional User oversee and approve, they do not edit other people's audits."""
+    if user.is_hq_admin:
         return True
     return visit.cluster_manager_id == user.id
 
@@ -63,7 +65,7 @@ def _log_answer_change(request, response: VisitResponse, before: dict) -> None:
 
 def _can_manage(user, visit: Visit) -> bool:
     """Edit details: admins always; the visit's owner until it's approved. (Delete is admin-only.)"""
-    if user.is_admin_role:
+    if user.is_hq_admin:
         return True
     return visit.cluster_manager_id == user.id and visit.status != VisitStatus.APPROVED
 
@@ -146,7 +148,7 @@ def visit_list(request):
     )
 
 
-@role_required(Role.ADMIN, Role.COO, Role.CLUSTER_MANAGER, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME)
+@role_required(Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER, Role.CLUSTER_MANAGER, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME)
 def visit_start(request):
     if request.method == "POST":
         form = StartVisitForm(request.POST, user=request.user)
@@ -267,7 +269,7 @@ def visit_edit(request, pk):
 @require_POST
 def visit_delete(request, pk):
     visit = get_object_or_404(visits_visible_to(request.user), pk=pk)
-    if not request.user.is_admin_role:
+    if not request.user.is_hq_admin:
         return HttpResponseForbidden("Only admins can delete visits.")
     # A schedule plan linked to this visit goes back to Planned rather than pointing at nothing.
     VisitPlan.objects.filter(visit=visit).update(visit=None, status=PlanStatus.PLANNED)

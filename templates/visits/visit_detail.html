@@ -25,13 +25,13 @@
   </div>
   <div class="flex gap-2">
     <button type="button" class="btn btn-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
-    {% if visit.cluster_manager_id == user.id or user.is_admin_role %}
+    {% if visit.cluster_manager_id == user.id or user.is_hq_admin %}
       <a class="btn btn-secondary" href="{% url 'visits:visit_fill' visit.pk %}"><i class="bi bi-ui-checks"></i> Edit Answers</a>
     {% endif %}
-    {% if user.is_admin_role or visit.cluster_manager_id == user.id and visit.status != 'APPROVED' %}
+    {% if user.is_hq_admin or visit.cluster_manager_id == user.id and visit.status != 'APPROVED' %}
       <a class="btn btn-secondary" href="{% url 'visits:visit_edit' visit.pk %}"><i class="bi bi-pencil"></i> Edit</a>
     {% endif %}
-    {% if user.is_admin_role %}
+    {% if user.is_hq_admin %}
       <form method="post" action="{% url 'visits:visit_delete' visit.pk %}" style="margin:0"
             onsubmit="return confirm('Delete this visit and all its answers, photos and actions?');">
         {% csrf_token %}<button class="btn btn-danger"><i class="bi bi-trash"></i> Delete</button>
