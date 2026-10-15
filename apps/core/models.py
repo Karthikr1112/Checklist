@@ -94,6 +94,7 @@ class AuditLog(models.Model):
         PLAN_DELETED = "PLAN_DELETED", "Plan deleted"
         CHECKLIST_CHANGED = "CHECKLIST_CHANGED", "Checklist changed"
         STORE_CHANGED = "STORE_CHANGED", "Store changed"
+        SYSTEM_CLEANUP = "SYSTEM_CLEANUP", "System Cleanup"
 
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     actor = models.ForeignKey(

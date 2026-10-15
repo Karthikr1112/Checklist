@@ -191,3 +191,27 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 25,
 }
+
+# ---------------------------------------------------------------------------
+# Celery & Periodic Tasks
+# ---------------------------------------------------------------------------
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://127.0.0.1:6379/0")
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://127.0.0.1:6379/0")
+CELERY_TIMEZONE = TIME_ZONE
+
+try:
+    from celery.schedules import crontab
+
+    CELERY_BEAT_SCHEDULE = {
+        "cleanup-old-photos-daily": {
+            "task": "apps.core.tasks.cleanup_old_photos_task",
+            "schedule": crontab(hour=1, minute=0),
+        },
+        "cleanup-old-audit-logs-daily": {
+            "task": "apps.core.tasks.cleanup_old_audit_logs_task",
+            "schedule": crontab(hour=1, minute=30),
+        },
+    }
+except ImportError:
+    CELERY_BEAT_SCHEDULE = {}
+
