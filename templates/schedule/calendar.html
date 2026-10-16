@@ -101,7 +101,9 @@
       <button class="icon-btn" onclick="closeModal()"><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="modal-body">
-      <div class="modal-row"><span class="k">Cluster Manager</span><span id="m_cm">—</span></div>
+      <div class="modal-row"><span class="k">Assigned To</span><span id="m_cm">—</span></div>
+      <div class="modal-row" id="m_created_row" style="display:none"><span class="k">Scheduled By</span><span id="m_created_by">—</span></div>
+      <div class="modal-row" id="m_template_row" style="display:none"><span class="k">Checklist</span><span id="m_template">—</span></div>
       <div class="modal-row"><span class="k">Audit Type</span><span id="m_type">—</span></div>
       <div class="modal-row"><span class="k">Status</span><span id="m_status">—</span></div>
       <div class="modal-row"><span class="k">Notes</span><span id="m_notes">—</span></div>
@@ -197,6 +199,25 @@
       ev.start.toLocaleString([], { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
       + ' – ' + ev.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     document.getElementById('m_cm').textContent = p.cluster_manager;
+
+    const createdRow = document.getElementById('m_created_row');
+    const createdEl = document.getElementById('m_created_by');
+    if (p.created_by) {
+      createdRow.style.display = '';
+      createdEl.textContent = p.created_by;
+    } else {
+      createdRow.style.display = 'none';
+    }
+
+    const templateRow = document.getElementById('m_template_row');
+    const templateEl = document.getElementById('m_template');
+    if (p.template_name) {
+      templateRow.style.display = '';
+      templateEl.textContent = p.template_name;
+    } else {
+      templateRow.style.display = 'none';
+    }
+
     document.getElementById('m_type').textContent = p.audit_type;
     document.getElementById('m_status').textContent = p.status_label;
     document.getElementById('m_notes').textContent = p.notes || '—';

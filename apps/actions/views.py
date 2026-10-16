@@ -53,7 +53,12 @@ def _redirect_back(request, item: ActionItem):
 @login_required
 def my_actions(request):
     items = list(ActionItem.objects.filter(owner=request.user).select_related("response__visit__store"))
-    response = render(request, "actions/my_actions.html", {"items": items, "today": timezone.localdate()})
+    active_count = sum(1 for a in items if a.status in (ActionStatus.OPEN, ActionStatus.IN_PROGRESS))
+    response = render(
+        request,
+        "actions/my_actions.html",
+        {"items": items, "today": timezone.localdate(), "active_count": active_count},
+    )
     # Rows rendered with a "New" tag above; from now on they no longer count as new.
     ActionItem.objects.filter(owner=request.user, seen_at__isnull=True).update(seen_at=timezone.now())
     return response
@@ -62,11 +67,16 @@ def my_actions(request):
 @login_required
 def all_actions(request):
     visible_visits = visits_visible_to(request.user).values_list("id", flat=True)
-    items = (
+    items = list(
         ActionItem.objects.filter(response__visit_id__in=list(visible_visits))
         .select_related("owner", "response__visit__store", "response__question")
     )
-    return render(request, "actions/all_actions.html", {"items": items, "today": timezone.localdate()})
+    open_count = sum(1 for a in items if a.status in (ActionStatus.OPEN, ActionStatus.IN_PROGRESS))
+    return render(
+        request,
+        "actions/all_actions.html",
+        {"items": items, "today": timezone.localdate(), "open_count": open_count},
+    )
 
 
 @login_required

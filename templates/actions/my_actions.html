@@ -2,7 +2,16 @@
 {% block title %}My Actions{% endblock %}
 {% block crumb %}My Actions{% endblock %}
 {% block content %}
-<div class="page-header"><div><h1>My Actions</h1><p>Items assigned to you across visits.</p></div></div>
+<div class="page-header">
+  <div>
+    <h1>My Actions</h1>
+    <p>Items assigned to you across visits.
+      {% if active_count %}
+        <span class="badge badge-warning badge-dot">{{ active_count }} active</span>
+      {% endif %}
+    </p>
+  </div>
+</div>
 
 <div class="card"><div class="table-wrap"><table class="table-clean">
   <thead><tr><th>Title</th><th>Store</th><th>Status</th><th>Due</th><th></th></tr></thead>

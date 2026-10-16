@@ -16,11 +16,11 @@
     <a class="sidebar-link {% if request.resolver_match.namespace == 'visits' %}active{% endif %}" href="{% url 'visits:visit_list' %}">
       <i class="bi bi-clipboard-data"></i> Visits
     </a>
-    <a class="sidebar-link {% if request.resolver_match.namespace == 'actions' %}active{% endif %}" href="{% url 'actions:my_actions' %}">
+    <a class="sidebar-link {% if request.resolver_match.url_name == 'my_actions' %}active{% endif %}" href="{% url 'actions:my_actions' %}">
       <i class="bi bi-kanban"></i> My Actions
-      {% if notif_new_actions %}<span class="nav-count" title="{{ notif_new_actions }} new action{{ notif_new_actions|pluralize }}">{{ notif_new_actions }}</span>{% endif %}
+      {% if notif_my_actions %}<span class="nav-count" title="{{ notif_my_actions }} active action{{ notif_my_actions|pluralize }} assigned to you">{{ notif_my_actions }}</span>{% endif %}
     </a>
-    <a class="sidebar-link" href="{% url 'actions:all_actions' %}">
+    <a class="sidebar-link {% if request.resolver_match.url_name == 'all_actions' %}active{% endif %}" href="{% url 'actions:all_actions' %}">
       <i class="bi bi-list-task"></i> All Actions
     </a>
 

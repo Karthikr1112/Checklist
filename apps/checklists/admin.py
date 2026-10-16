@@ -18,8 +18,9 @@ class SectionAdmin(admin.ModelAdmin):
 
 @admin.register(ChecklistTemplate)
 class ChecklistTemplateAdmin(admin.ModelAdmin):
-    list_display = ("name", "version", "is_active")
-    list_filter = ("is_active",)
+    list_display = ("name", "version", "audience", "is_active")
+    list_filter = ("is_active", "audience")
+    search_fields = ("name",)
 
 
 @admin.register(Question)

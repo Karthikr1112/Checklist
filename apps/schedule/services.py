@@ -9,28 +9,45 @@ from apps.visits.services import start_visit
 from .models import PlanStatus, VisitPlan
 
 
+def templates_for_user(user) -> list[ChecklistTemplate]:
+    """Return the checklist template(s) mapped to this user's role and sub-role."""
+    if not user:
+        return []
+    qs = ChecklistTemplate.objects.filter(is_active=True)
+    if user.is_inventory_team:
+        return list(qs.filter(audience=ChecklistTemplate.Audience.INVENTORY_TEAM))
+    if user.is_marketing_team:
+        if user.marketing_role:
+            matches = list(qs.filter(audience=ChecklistTemplate.Audience.MARKETING_TEAM, name__icontains=user.marketing_role))
+            if matches:
+                return matches
+        return list(qs.filter(audience=ChecklistTemplate.Audience.MARKETING_TEAM))
+    if user.is_vm_team:
+        if user.vm_role:
+            matches = list(qs.filter(audience=ChecklistTemplate.Audience.VM_TEAM, name__icontains=user.vm_role))
+            if matches:
+                return matches
+        return list(qs.filter(audience=ChecklistTemplate.Audience.VM_TEAM))
+    if user.is_grocery_home:
+        if user.gh_role:
+            matches = list(qs.filter(audience=ChecklistTemplate.Audience.GROCERY_HOME, name__icontains=user.gh_role))
+            if matches:
+                return matches
+        return list(qs.filter(audience=ChecklistTemplate.Audience.GROCERY_HOME))
+    return list(qs.filter(audience=ChecklistTemplate.Audience.CLUSTER_MANAGER))
+
+
+def resolve_template_for_user(user) -> ChecklistTemplate | None:
+    templates = templates_for_user(user)
+    return templates[0] if templates else None
+
+
 @transaction.atomic
 def start_visit_from_plan(*, plan: VisitPlan, user) -> VisitPlan:
     """Create a Visit linked to this plan and flip status to CHECKED_IN."""
     if plan.visit_id:
         return plan
-    templates = ChecklistTemplate.objects.filter(is_active=True)
-    if user is not None and not user.is_admin_role:
-        if user.is_inventory_team:
-            templates = templates.filter(audience=ChecklistTemplate.Audience.INVENTORY_TEAM)
-        elif user.is_marketing_team:
-            templates = templates.filter(audience=ChecklistTemplate.Audience.MARKETING_TEAM)
-        elif user.is_vm_team:
-            templates = templates.filter(audience=ChecklistTemplate.Audience.VM_TEAM)
-            if user.vm_role:
-                templates = templates.filter(name__icontains=user.vm_role)
-        elif user.is_grocery_home:
-            templates = templates.filter(audience=ChecklistTemplate.Audience.GROCERY_HOME)
-            if user.gh_role:
-                templates = templates.filter(name__icontains=user.gh_role)
-        else:
-            templates = templates.filter(audience=ChecklistTemplate.Audience.CLUSTER_MANAGER)
-    template = templates.order_by("-version").first()
+    template = plan.template or resolve_template_for_user(plan.cluster_manager)
     if template is None:
         raise ValueError("No active checklist template available.")
     visit = start_visit(

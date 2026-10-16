@@ -2,7 +2,16 @@
 {% block title %}All Actions{% endblock %}
 {% block crumb %}All Actions{% endblock %}
 {% block content %}
-<div class="page-header"><div><h1>All Actions</h1><p>Across every store you can see.</p></div></div>
+<div class="page-header">
+  <div>
+    <h1>All Actions</h1>
+    <p>Across every store you can see.
+      {% if open_count %}
+        <span class="badge badge-warning badge-dot">{{ open_count }} open</span>
+      {% endif %}
+    </p>
+  </div>
+</div>
 
 <div class="card"><div class="table-wrap"><table class="table-clean">
   <thead><tr><th>Title</th><th>Store</th><th>Owner</th><th>Status</th><th>Due</th><th></th></tr></thead>

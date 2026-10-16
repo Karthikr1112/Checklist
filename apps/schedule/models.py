@@ -24,8 +24,19 @@ class VisitPlan(BaseModel):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="visit_plans",
+        verbose_name=_("User to fill checklist / Cluster Manager"),
+        help_text=_("The user who will conduct the visit and fill the checklist."),
     )
     store = models.ForeignKey(Store, on_delete=models.PROTECT, related_name="visit_plans")
+    template = models.ForeignKey(
+        "checklists.ChecklistTemplate",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="visit_plans",
+        verbose_name=_("Checklist Template"),
+        help_text=_("Optional: specific checklist template to fill (e.g. Grocery & Home). If blank, matched by role."),
+    )
     planned_date = models.DateField(db_index=True)
     start_time = models.TimeField()
     end_time = models.TimeField()
@@ -55,6 +66,8 @@ class VisitPlan(BaseModel):
         null=True,
         blank=True,
         related_name="created_plans",
+        verbose_name=_("Scheduled by (Manager / Dept Head)"),
+        help_text=_("The Department Head, Manager, or Admin who scheduled this visit."),
     )
 
     class Meta:

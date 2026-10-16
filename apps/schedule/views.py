@@ -12,12 +12,13 @@ from django.utils.dateparse import parse_date, parse_time
 from django.views.decorators.http import require_http_methods
 
 from apps.accounts.models import Role, User
+from apps.checklists.models import ChecklistTemplate
 from apps.core.audit import Action, diff, log_event
 
 from .forms import VisitPlanForm
 from .models import PlanStatus, VisitPlan
 from .selectors import plans_visible_to
-from .services import start_visit_from_plan
+from .services import resolve_template_for_user, start_visit_from_plan, templates_for_user
 
 
 def _plan_label(plan: VisitPlan) -> str:
@@ -64,6 +65,8 @@ def _serialize(plan: VisitPlan, user=None) -> dict:
             "store_name": plan.store.name,
             "cluster_manager": plan.cluster_manager.employee_label,
             "cluster_manager_id": str(plan.cluster_manager_id),
+            "created_by": plan.created_by.employee_label if plan.created_by else None,
+            "template_name": plan.template.name if plan.template else None,
             "audit_type": plan.get_audit_type_display(),
             "status": plan.status,
             "status_label": plan.get_status_display(),

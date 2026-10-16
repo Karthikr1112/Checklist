@@ -9,7 +9,7 @@ from .models import VisitPlan
 
 
 def plans_visible_to(user):
-    qs = VisitPlan.objects.select_related("store", "cluster_manager", "visit")
+    qs = VisitPlan.objects.select_related("store", "cluster_manager", "created_by", "template", "visit")
     if user.is_admin_role:
         return qs
     if user.role == Role.CLUSTER_MANAGER:
