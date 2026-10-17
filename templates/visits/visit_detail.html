@@ -23,7 +23,7 @@
       {% endif %}
     </p>
   </div>
-  <div class="flex gap-2">
+  <div class="flex gap-2 page-actions">
     <button type="button" class="btn btn-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
     {% if user.is_hq_admin %}
       <a class="btn btn-secondary" href="{% url 'visits:visit_fill' visit.pk %}"><i class="bi bi-ui-checks"></i> Edit Answers</a>
@@ -51,7 +51,7 @@
   </div>
 </div>
 
-<div class="flex gap-3 mb-4" style="align-items:center;flex-wrap:wrap;background:#fff;padding:20px;border:1px solid var(--gray-200);border-radius:var(--radius)">
+<div class="visit-summary-banner flex gap-3 mb-4" style="align-items:center;flex-wrap:wrap;background:#fff;padding:20px;border:1px solid var(--gray-200);border-radius:var(--radius)">
   <div class="ring" style="--pct:{{ visit.compliance_pct }}; --color: {% if visit.compliance_pct >= 80 %}var(--success){% elif visit.compliance_pct >= 60 %}var(--warning){% else %}var(--danger){% endif %};">
     <div style="text-align:center">
       <div class="ring-val">{{ visit.compliance_pct }}%</div>

@@ -16,7 +16,12 @@
   .filter-bar { display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:10px 12px; align-items:end; }
   .filter-bar .form-label { font-size:12px; margin-bottom:4px; }
   .filter-bar .wide { grid-column: span 2; }
-  @media (max-width: 600px) { .filter-bar .wide { grid-column: auto; } }
+  @media (max-width: 600px) {
+    .filter-bar { grid-template-columns: 1fr; }
+    .filter-bar .wide { grid-column: auto; }
+    .filter-bar .flex.gap-2 { width: 100%; }
+    .filter-bar .flex.gap-2 .btn { flex: 1; justify-content: center; }
+  }
 </style>
 <div class="card">
   <div class="card-body">

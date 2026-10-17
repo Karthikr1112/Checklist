@@ -26,11 +26,51 @@
       <button class="btn btn-primary"><i class="bi bi-check2"></i> Save Plan</button>
       <a class="btn btn-ghost" href="{% url 'schedule:calendar' %}">Cancel</a>
       {% if plan %}
-        <button class="btn btn-danger" style="margin-left:auto" formnovalidate
-                formaction="{% url 'schedule:plan_delete' plan.pk %}"
-                onclick="return confirm('Delete this plan?');"><i class="bi bi-trash"></i> Delete</button>
+        <button type="button" class="btn btn-danger" style="margin-left:auto" onclick="openDeleteModal()">
+          <i class="bi bi-trash"></i> Delete
+        </button>
       {% endif %}
     </div>
   </form>
 </div></div>
+
+{% if plan %}
+<!-- Delete confirmation modal with mandatory reason -->
+<div class="modal-back" id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);place-items:center;z-index:1200;padding:16px;">
+  <div class="modal-card" style="background:#fff;border-radius:var(--radius-lg);width:100%;max-width:440px;box-shadow:var(--shadow-lg);overflow:hidden;">
+    <div class="modal-head" style="padding:16px 20px;border-bottom:1px solid var(--gray-200);display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="color:var(--danger,#ef4444);font-size:16px;margin:0;"><i class="bi bi-trash"></i> Delete Plan</h3>
+      <button type="button" class="icon-btn" onclick="closeDeleteModal()" style="background:transparent;border:0;color:var(--gray-400);cursor:pointer;font-size:18px;"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <form method="post" action="{% url 'schedule:plan_delete' plan.pk %}">
+      {% csrf_token %}
+      <div class="modal-body" style="padding:18px 20px;">
+        <p style="margin-bottom:12px;font-size:13.5px;color:var(--gray-700)">Are you sure you want to delete this scheduled plan for <strong>{{ plan.store.code }} · {{ plan.store.name }}</strong>?</p>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label" for="delReasonInput">Reason for Delete <span style="color:var(--danger,#ef4444);font-weight:bold;">*</span></label>
+          <textarea id="delReasonInput" name="delete_reason" class="form-control" rows="3" required placeholder="Explain why this scheduled plan is being deleted (mandatory)..."></textarea>
+          <small class="muted" style="display:block;margin-top:4px;">Mandatory: this reason will be recorded in the audit log.</small>
+        </div>
+      </div>
+      <div class="modal-foot" style="padding:14px 20px;background:var(--gray-50);border-top:1px solid var(--gray-200);display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+        <button type="submit" class="btn btn-danger"><i class="bi bi-trash"></i> Confirm Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+  function openDeleteModal() {
+    const m = document.getElementById('deleteModal');
+    m.style.display = 'grid';
+    document.getElementById('delReasonInput').value = '';
+    setTimeout(() => document.getElementById('delReasonInput').focus(), 100);
+  }
+  function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+  }
+  const delM = document.getElementById('deleteModal');
+  if (delM) delM.addEventListener('click', (e) => { if (e.target === delM) closeDeleteModal(); });
+</script>
+{% endif %}
 {% endblock %}

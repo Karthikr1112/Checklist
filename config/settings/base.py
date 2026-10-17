@@ -131,6 +131,10 @@ LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "dashboard:index"
 LOGOUT_REDIRECT_URL = "accounts:login"
 
+# Session timeout: auto-logout after 30 minutes of inactivity
+SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds (30 * 60)
+SESSION_SAVE_EVERY_REQUEST = True  # Resets the 30-minute timer on every user request
+
 AUTHENTICATION_BACKENDS = [
     "apps.accounts.backends.StyleHRBackend",
     "apps.accounts.backends.EmployeeIdBackend",

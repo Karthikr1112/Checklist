@@ -30,17 +30,17 @@
         </div>
       </div>
 
-      <form method="post" action="{% url 'visits:response_save' r.pk %}" class="flex gap-2 mt-3 js-autosave-form" style="flex-wrap:wrap;align-items:center" data-response-pk="{{ r.pk }}">
+      <form method="post" action="{% url 'visits:response_save' r.pk %}" class="flex gap-2 mt-3 js-autosave-form q-answer-form" style="flex-wrap:wrap;align-items:center" data-response-pk="{{ r.pk }}">
         {% csrf_token %}
-        <select name="response" class="form-select form-select-sm js-autosave-field" style="max-width:130px">
+        <select name="response" class="form-select form-select-sm js-autosave-field q-select-resp" style="max-width:130px">
           <option value="">— Select —</option>
           <option value="YES" {% if r.response == 'YES' %}selected{% endif %}>✓ Yes</option>
           <option value="NO"  {% if r.response == 'NO'  %}selected{% endif %}>✗ No</option>
           <option value="NA"  {% if r.response == 'NA'  %}selected{% endif %}>NA</option>
         </select>
-        <input name="observation" type="text" class="form-control form-control-sm js-autosave-field" style="flex:1;min-width:240px"
+        <input name="observation" type="text" class="form-control form-control-sm js-autosave-field q-obs-input" style="flex:1;min-width:160px"
                placeholder="Work Done Today / Blockers / Observation" value="{{ r.observation }}">
-        <span class="js-autosave-status muted" style="font-size:12px;min-width:80px">
+        <span class="js-autosave-status muted" style="font-size:12px;min-width:70px">
           <i class="bi bi-cloud-check"></i> Saved
         </span>
       </form>
@@ -57,10 +57,10 @@
         <summary class="muted" style="font-size:12.5px;cursor:pointer">
           <i class="bi bi-paperclip"></i> Attach photo / Create action
         </summary>
-        <form method="post" enctype="multipart/form-data" action="{% url 'visits:response_photo_upload' r.pk %}" class="flex gap-2 mt-2" style="flex-wrap:wrap">
+        <form method="post" enctype="multipart/form-data" action="{% url 'visits:response_photo_upload' r.pk %}" class="flex gap-2 mt-2 q-photo-form" style="flex-wrap:wrap">
           {% csrf_token %}
-          <input type="file" name="image" accept="image/*" capture="environment" class="form-control form-control-sm" style="flex:1;min-width:200px">
-          <input type="text" name="caption" placeholder="Caption (optional)" class="form-control form-control-sm" style="flex:1;min-width:160px">
+          <input type="file" name="image" accept="image/*" capture="environment" class="form-control form-control-sm" style="flex:1;min-width:140px">
+          <input type="text" name="caption" placeholder="Caption (optional)" class="form-control form-control-sm" style="flex:1;min-width:120px">
           <button class="btn btn-secondary btn-sm"><i class="bi bi-upload"></i> Upload</button>
         </form>
         <a class="btn btn-warning btn-sm mt-2" href="{% url 'actions:action_create' r.pk %}"><i class="bi bi-plus-lg"></i> Create Action</a>

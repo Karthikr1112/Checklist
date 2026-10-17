@@ -168,10 +168,21 @@ def plan_delete(request, pk):
     plan = get_object_or_404(VisitPlan, pk=pk)
     if not _can_edit(request.user, plan):
         return HttpResponseForbidden()
-    log_event(request, Action.PLAN_DELETED, plan, label=_plan_label(plan),
-              details=f"for {plan.cluster_manager.employee_label} · {plan.get_status_display()}")
+
+    delete_reason = request.POST.get("delete_reason", "").strip()
+    if not delete_reason:
+        messages.error(request, "A reason for deleting the scheduled plan is mandatory.")
+        return redirect("schedule:calendar")
+
+    log_event(
+        request,
+        Action.PLAN_DELETED,
+        plan,
+        label=_plan_label(plan),
+        details=f"Reason: {delete_reason} · for {plan.cluster_manager.employee_label} · {plan.get_status_display()}",
+    )
     plan.delete()
-    messages.success(request, "Plan removed.")
+    messages.success(request, f"Plan for {plan.store.code} deleted.")
     return redirect("schedule:calendar")
 
 
