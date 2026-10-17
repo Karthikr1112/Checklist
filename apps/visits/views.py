@@ -23,11 +23,11 @@ from .services import approve_visit, save_response, start_visit, submit_visit
 
 
 def _ensure_can_edit(user, visit: Visit) -> bool:
-    """Fill in answers: admins, and whoever conducted the visit.
-    The COO / Professional User oversee and approve, they do not edit other people's audits."""
+    """Fill in answers: admins always; whoever conducted the visit until it's approved.
+    Once approved, only admins can edit answers."""
     if user.is_hq_admin:
         return True
-    return visit.cluster_manager_id == user.id
+    return visit.cluster_manager_id == user.id and visit.status != VisitStatus.APPROVED
 
 
 def _visit_label(visit: Visit) -> str:

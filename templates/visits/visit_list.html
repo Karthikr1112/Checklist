@@ -120,7 +120,9 @@
           <td class="text-right">
             <div class="flex gap-2" style="justify-content:flex-end;align-items:center">
               <a class="btn btn-secondary btn-sm" href="{% url 'visits:visit_detail' v.pk %}">Open</a>
-              {% if user.is_hq_admin or v.cluster_manager_id == user.id and v.status != 'APPROVED' %}
+              {% if user.is_hq_admin %}
+                <a class="btn btn-secondary btn-sm" href="{% url 'visits:visit_edit' v.pk %}" title="Edit"><i class="bi bi-pencil"></i> Edit</a>
+              {% elif v.cluster_manager_id == user.id and v.status != 'APPROVED' %}
                 <a class="btn btn-secondary btn-sm" href="{% url 'visits:visit_edit' v.pk %}" title="Edit"><i class="bi bi-pencil"></i> Edit</a>
               {% endif %}
               {% if user.is_hq_admin %}

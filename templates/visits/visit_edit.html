@@ -7,7 +7,11 @@
     <h1>Edit Visit</h1>
     <p>{{ visit.template.name }} · change the store, date or audit type.</p>
   </div>
-  <a class="btn btn-secondary" href="{% url 'visits:visit_fill' visit.pk %}"><i class="bi bi-ui-checks"></i> Edit checklist answers</a>
+  {% if user.is_hq_admin %}
+    <a class="btn btn-secondary" href="{% url 'visits:visit_fill' visit.pk %}"><i class="bi bi-ui-checks"></i> Edit checklist answers</a>
+  {% elif visit.cluster_manager_id == user.id and visit.status != 'APPROVED' %}
+    <a class="btn btn-secondary" href="{% url 'visits:visit_fill' visit.pk %}"><i class="bi bi-ui-checks"></i> Edit checklist answers</a>
+  {% endif %}
 </div>
 
 <div class="card" style="max-width:640px"><div class="card-body">

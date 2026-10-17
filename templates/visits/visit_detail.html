@@ -25,10 +25,11 @@
   </div>
   <div class="flex gap-2">
     <button type="button" class="btn btn-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
-    {% if visit.cluster_manager_id == user.id or user.is_hq_admin %}
+    {% if user.is_hq_admin %}
       <a class="btn btn-secondary" href="{% url 'visits:visit_fill' visit.pk %}"><i class="bi bi-ui-checks"></i> Edit Answers</a>
-    {% endif %}
-    {% if user.is_hq_admin or visit.cluster_manager_id == user.id and visit.status != 'APPROVED' %}
+      <a class="btn btn-secondary" href="{% url 'visits:visit_edit' visit.pk %}"><i class="bi bi-pencil"></i> Edit</a>
+    {% elif visit.cluster_manager_id == user.id and visit.status != 'APPROVED' %}
+      <a class="btn btn-secondary" href="{% url 'visits:visit_fill' visit.pk %}"><i class="bi bi-ui-checks"></i> Edit Answers</a>
       <a class="btn btn-secondary" href="{% url 'visits:visit_edit' visit.pk %}"><i class="bi bi-pencil"></i> Edit</a>
     {% endif %}
     {% if user.is_hq_admin %}
