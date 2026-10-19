@@ -88,12 +88,12 @@ def cleanup_old_photos_task() -> str:
 
 @shared_task
 def cleanup_old_audit_logs_task() -> str:
-    """Delete audit log entries older than 30 days."""
-    cutoff = timezone.now() - timedelta(days=30)
+    """Delete audit log entries older than 15 days."""
+    cutoff = timezone.now() - timedelta(days=15)
     deleted_count, _ = AuditLog.objects.filter(created_at__lt=cutoff).delete()
 
     if deleted_count > 0:
-        details = f"Audit log cleanup executed: {deleted_count} logs older than 30 days permanently purged."
+        details = f"Audit log cleanup executed: {deleted_count} logs older than 15 days permanently purged."
     else:
         details = "Audit log cleanup executed: 0 expired logs found today (table clean)."
 
@@ -103,7 +103,7 @@ def cleanup_old_audit_logs_task() -> str:
             actor_label="Celery System",
             action=getattr(AuditLog.Action, "SYSTEM_CLEANUP", "SYSTEM_CLEANUP"),
             object_type="AuditLog",
-            object_label="Audit Log Table (30 Days)",
+            object_label="Audit Log Table (15 Days)",
             details=details,
         )
     except Exception as exc:
