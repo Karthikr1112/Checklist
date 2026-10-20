@@ -144,6 +144,11 @@ AUTHENTICATION_BACKENDS = [
 
 STYLEHR_API_URL = env("STYLEHR_API_URL", default="https://stylehr.in/api/login/")
 STYLEHR_API_TIMEOUT = env.int("STYLEHR_API_TIMEOUT", default=8)
+try:
+    _raw_ttl = str(env("STYLEHR_CACHE_TTL", default=7 * 86400)).split("#")[0].strip()
+    STYLEHR_CACHE_TTL = int(_raw_ttl)
+except (ValueError, TypeError):
+    STYLEHR_CACHE_TTL = 7 * 86400
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -197,10 +202,21 @@ REST_FRAMEWORK = {
 }
 
 # ---------------------------------------------------------------------------
-# Celery & Periodic Tasks
+# Redis & Caching
 # ---------------------------------------------------------------------------
-CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://127.0.0.1:6379/0")
-CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://127.0.0.1:6379/0")
+REDIS_URL = env("REDIS_URL", default=env("CELERY_BROKER_URL", default="redis://127.0.0.1:6379/0"))
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+        "KEY_PREFIX": "cl_app",
+        "TIMEOUT": 300,
+    }
+}
+
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=REDIS_URL)
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=REDIS_URL)
 CELERY_TIMEZONE = TIME_ZONE
 
 try:

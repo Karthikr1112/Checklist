@@ -114,9 +114,9 @@
 <div class="card">
   <div class="card-header" style="flex-wrap:wrap;gap:12px">
     <div class="filters">
-      {% if is_admin %}
+      {% if can_filter_users or is_admin %}
       <select id="cmFilter" class="form-select form-select-sm">
-        <option value="">All Users</option>
+        <option value="">{{ filter_label|default:"All Users" }}</option>
         {% for cm in cluster_managers %}
           <option value="{{ cm.id }}">{{ cm.employee_label }}</option>
         {% endfor %}
@@ -342,7 +342,7 @@
       visitBtn.style.display = '';
       visitBtn.href = p.visit_url;
       startForm.style.display = 'none';
-    } else if (p.status === 'PLANNED' || p.status === 'CHECKED_IN') {
+    } else if (p.can_start && (p.status === 'PLANNED' || p.status === 'CHECKED_IN')) {
       startForm.style.display = '';
       startForm.action = p.start_visit_url;
       visitBtn.style.display = 'none';

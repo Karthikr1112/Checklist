@@ -201,6 +201,18 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.role == Role.GROCERY_HOME and self.gh_role == GHRole.BUSINESS_HEAD
 
     @property
+    def is_grocery_home_head(self) -> bool:
+        """Category Head (Grocery / Home) or Business Head."""
+        return self.role == Role.GROCERY_HOME and bool(
+            self.gh_role in (GHRole.CATEGORY_HEAD_GROCERY, GHRole.CATEGORY_HEAD_HOME, GHRole.BUSINESS_HEAD)
+        )
+
+    @property
+    def is_department_head(self) -> bool:
+        """True if the user is Head/Manager of Marketing, VM, or Grocery & Home."""
+        return self.is_marketing_head or self.is_vm_manager or self.is_grocery_home_head
+
+    @property
     def sub_role(self) -> str:
         """The team-specific role shown next to a person's name (Marketing / VM / Grocery & Home)."""
         return self.marketing_role or self.vm_role or self.gh_role

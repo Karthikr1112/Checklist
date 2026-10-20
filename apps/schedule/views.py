@@ -47,14 +47,42 @@ STATUS_COLORS = {
 
 
 def _can_edit(user, plan: VisitPlan) -> bool:
-    return user.is_admin_role or plan.cluster_manager_id == user.id
+    if user.is_admin_role:
+        return True
+    if plan.cluster_manager_id == user.id or plan.created_by_id == user.id:
+        return True
+    if getattr(user, "is_marketing_head", False) and plan.cluster_manager.role == Role.MARKETING_TEAM:
+        return True
+    if getattr(user, "is_vm_manager", False) and plan.cluster_manager.role == Role.VM_TEAM:
+        return True
+    if getattr(user, "is_grocery_home_head", False) and plan.cluster_manager.role == Role.GROCERY_HOME:
+        return True
+    return False
+
+
+def _can_start(user, plan: VisitPlan) -> bool:
+    """Only the assigned user (who conducts the visit) or Admins can start a visit."""
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_admin_role:
+        return True
+    return plan.cluster_manager_id == user.id
+
 
 
 def _serialize(plan: VisitPlan, user=None) -> dict:
     color = STATUS_COLORS.get(plan.status, STATUS_COLORS[PlanStatus.PLANNED])
+    show_cm = bool(
+        user and (
+            user.is_admin_role
+            or getattr(user, "is_department_head", False)
+            or user.role in (Role.CLUSTER_MANAGER, Role.STORE_MANAGER)
+        )
+    )
+    cm_suffix = f" [{plan.cluster_manager.get_short_name()}]" if show_cm else ""
     return {
         "id": str(plan.id),
-        "title": f"{plan.store.code} · {plan.store.name}",
+        "title": f"{plan.store.code} · {plan.store.name}{cm_suffix}",
         "start": f"{plan.planned_date.isoformat()}T{plan.start_time.strftime('%H:%M:%S')}",
         "end":   f"{plan.planned_date.isoformat()}T{plan.end_time.strftime('%H:%M:%S')}",
         "backgroundColor": color["bg"],
@@ -77,6 +105,7 @@ def _serialize(plan: VisitPlan, user=None) -> dict:
             "edit_url":   reverse("schedule:plan_edit",   args=[plan.id]),
             "delete_url": reverse("schedule:plan_delete", args=[plan.id]),
             "can_edit": bool(user and _can_edit(user, plan)),
+            "can_start": bool(user and _can_start(user, plan)),
             "start_visit_url": reverse("schedule:plan_start_visit", args=[plan.id]),
             "reschedule_url": reverse("schedule:api_event_reschedule", args=[plan.id]),
             "visit_url": reverse("visits:visit_detail", args=[plan.visit_id]) if plan.visit_id else None,
@@ -89,17 +118,52 @@ def _serialize(plan: VisitPlan, user=None) -> dict:
 # ============================================================
 @login_required
 def calendar_view(request):
-    cms = User.objects.filter(
-        is_active=True,
-        role__in=[Role.CLUSTER_MANAGER, Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME],
-    ).order_by("employee_id", "full_name")
+    user = request.user
+    can_filter_users = False
+    filter_label = "All Users"
+
+    if user.is_admin_role or user.role in (Role.CLUSTER_MANAGER, Role.STORE_MANAGER):
+        cms = User.objects.filter(
+            is_active=True,
+            role__in=[
+                Role.CLUSTER_MANAGER,
+                Role.ADMIN,
+                Role.COO,
+                Role.PROFESSIONAL_USER,
+                Role.INVENTORY_TEAM,
+                Role.MARKETING_TEAM,
+                Role.VM_TEAM,
+                Role.GROCERY_HOME,
+            ],
+        ).order_by("employee_id", "full_name")
+        can_filter_users = True
+        filter_label = "All Users"
+    elif getattr(user, "is_marketing_head", False):
+        cms = User.objects.filter(is_active=True, role=Role.MARKETING_TEAM).order_by("full_name")
+        can_filter_users = True
+        filter_label = "All Marketing Team"
+    elif getattr(user, "is_vm_manager", False):
+        cms = User.objects.filter(is_active=True, role=Role.VM_TEAM).order_by("full_name")
+        can_filter_users = True
+        filter_label = "All VM Team"
+    elif getattr(user, "is_grocery_home_head", False):
+        cms = User.objects.filter(is_active=True, role=Role.GROCERY_HOME).order_by("full_name")
+        can_filter_users = True
+        filter_label = "All Grocery & Home Team"
+    else:
+        cms = User.objects.none()
+        can_filter_users = False
+        filter_label = ""
+
     return render(
         request,
         "schedule/calendar.html",
         {
             "cluster_managers": cms,
-            "is_admin": request.user.is_admin_role,
-            "current_user_id": str(request.user.id),
+            "can_filter_users": can_filter_users,
+            "filter_label": filter_label,
+            "is_admin": user.is_admin_role,
+            "current_user_id": str(user.id),
             "status_colors_json": json.dumps(STATUS_COLORS),
         },
     )
@@ -108,7 +172,15 @@ def calendar_view(request):
 @login_required
 def plan_detail(request, pk):
     plan = get_object_or_404(plans_visible_to(request.user), pk=pk)
-    return render(request, "schedule/plan_detail.html", {"plan": plan, "can_edit": _can_edit(request.user, plan)})
+    return render(
+        request,
+        "schedule/plan_detail.html",
+        {
+            "plan": plan,
+            "can_edit": _can_edit(request.user, plan),
+            "can_start": _can_start(request.user, plan),
+        },
+    )
 
 
 @login_required
@@ -190,7 +262,7 @@ def plan_delete(request, pk):
 @require_http_methods(["POST"])
 def plan_start_visit(request, pk):
     plan = get_object_or_404(VisitPlan, pk=pk)
-    if not _can_edit(request.user, plan):
+    if not _can_start(request.user, plan):
         return HttpResponseForbidden()
     try:
         start_visit_from_plan(plan=plan, user=request.user)

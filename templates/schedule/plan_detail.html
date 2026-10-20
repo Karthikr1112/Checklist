@@ -15,10 +15,12 @@
     {% endif %}
     {% if plan.visit_id %}
       <a class="btn btn-primary" href="{% url 'visits:visit_detail' plan.visit_id %}"><i class="bi bi-clipboard-data"></i> Open Visit</a>
-    {% elif can_edit and plan.status == 'PLANNED' or plan.status == 'CHECKED_IN' %}
+    {% elif can_start %}
+      {% if plan.status == 'PLANNED' or plan.status == 'CHECKED_IN' %}
       <form method="post" action="{% url 'schedule:plan_start_visit' plan.pk %}" style="margin:0">
         {% csrf_token %}<button class="btn btn-success"><i class="bi bi-play-fill"></i> Start Visit</button>
       </form>
+      {% endif %}
     {% endif %}
   </div>
 </div>

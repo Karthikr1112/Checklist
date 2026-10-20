@@ -31,7 +31,7 @@
       </td>
       <td>{{ u.email }}</td>
       <td>
-        {% if u.approval_status == 'PENDING' %}
+        {% if u.approval_status|upper == 'PENDING' %}
           <form method="post" action="{% url 'accounts:user_approve' u.pk %}" class="flex gap-2" style="align-items:center;margin:0">
             {% csrf_token %}
             <select name="role" class="form-select form-select-sm" style="max-width:170px">
@@ -54,9 +54,9 @@
       </td>
       <td><span class="badge badge-neutral">{{ u.get_source_display }}</span></td>
       <td>
-        {% if u.approval_status == 'APPROVED' %}
+        {% if u.approval_status|upper == 'APPROVED' %}
           <span class="badge badge-success badge-dot">Approved</span>
-        {% elif u.approval_status == 'PENDING' %}
+        {% elif u.approval_status|upper == 'PENDING' %}
           <span class="badge badge-warning badge-dot">Pending</span>
         {% else %}
           <span class="badge badge-danger badge-dot">Rejected</span>

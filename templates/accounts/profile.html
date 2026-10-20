@@ -13,7 +13,7 @@
       </div>
     </div>
     <div class="divider"></div>
-    <div class="form-group"><label class="form-label">Role</label><div><span class="badge badge-brand">{{ user_obj.get_role_display }}</span></div></div>
+    <div class="form-group"><label class="form-label">Role</label><div><span class="badge badge-brand">{{ user_obj.sub_role|default:user_obj.get_role_display }}</span></div></div>
     <div class="form-group"><label class="form-label">Phone</label><div>{{ user_obj.phone|default:'—' }}</div></div>
   </div>
 </div>

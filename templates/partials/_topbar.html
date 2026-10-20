@@ -15,7 +15,7 @@
   <div class="dd">
     <button class="user-chip" data-dd type="button">
       <span class="avatar">{{ user.full_name|slice:":1"|upper }}</span>
-      <span class="meta"><strong>{{ user.get_short_name }}</strong><span>{{ user.get_role_display }}</span></span>
+      <span class="meta"><strong>{{ user.get_short_name }}</strong><span>{{ user.sub_role|default:user.get_role_display }}</span></span>
       <i class="bi bi-chevron-down" style="font-size:11px;color:var(--gray-500)"></i>
     </button>
     <div class="dd-menu">

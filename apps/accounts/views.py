@@ -32,7 +32,7 @@ def pending_approval(request):
 @role_required(Role.ADMIN)
 def user_list(request):
     users = User.objects.order_by("approval_status", "full_name")
-    pending_count = User.objects.filter(approval_status=ApprovalStatus.PENDING).count()
+    pending_count = User.objects.filter(approval_status__iexact=ApprovalStatus.PENDING).count()
     return render(
         request,
         "accounts/user_list.html",

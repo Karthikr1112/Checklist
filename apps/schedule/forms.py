@@ -41,7 +41,7 @@ class VisitPlanForm(forms.ModelForm):
         self.fields["cluster_manager"].label_from_instance = lambda u: u.employee_label
         self.fields["store"].queryset = Store.objects.filter(is_active=True)
         if user is not None and not user.is_admin_role:
-            # Non-admins can only plan for themselves
+            # Non-admins always plan for themselves
             self.fields["cluster_manager"].queryset = User.objects.filter(pk=user.pk)
             self.fields["cluster_manager"].initial = user
             self.fields["cluster_manager"].widget = forms.HiddenInput()

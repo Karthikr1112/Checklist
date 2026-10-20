@@ -11,6 +11,9 @@ from typing import Any
 import requests
 from django.conf import settings
 from django.contrib.auth.backends import ModelBackend
+from django.contrib.auth.hashers import check_password, make_password
+from django.core.cache import cache
+from django.utils import timezone
 
 from .models import ApprovalStatus, User, UserSource
 
@@ -147,6 +150,55 @@ def _extract_profile(data: dict, fallback_email: str) -> dict:
     }
 
 
+def _cache_credentials(username: str, password: str, profile: dict) -> None:
+    """Store securely hashed credentials and profile in Redis for offline/API-outage fallback."""
+    try:
+        ttl = getattr(settings, "STYLEHR_CACHE_TTL", 7 * 86400)
+        cache_data = {
+            "password_hash": make_password(password),
+            "profile": profile,
+            "cached_at": timezone.now().isoformat(),
+        }
+        keys_to_set = set()
+        if username:
+            keys_to_set.add(f"stylehr_cred:{username.strip().lower()}")
+        if profile.get("employee_id"):
+            emp_id = profile["employee_id"].strip().lower()
+            keys_to_set.add(f"stylehr_cred:{emp_id}")
+            if "-" in emp_id:
+                keys_to_set.add(f"stylehr_cred:{emp_id.split('-', 1)[1]}")
+        if profile.get("email"):
+            keys_to_set.add(f"stylehr_cred:{profile['email'].strip().lower()}")
+
+        for k in keys_to_set:
+            cache.set(k, cache_data, timeout=ttl)
+        logger.info("Cached StyleHR credentials in Redis for %s (TTL: %ds)", username, ttl)
+    except Exception as exc:
+        logger.warning("Failed to cache StyleHR credentials in Redis: %s", exc)
+
+
+def _get_cached_credentials(username: str) -> dict | None:
+    """Look up cached StyleHR credentials from Redis by username / employee code / email."""
+    try:
+        typed = (username or "").strip().lower()
+        if not typed:
+            return None
+        # 1. Direct key match (e.g. stylehr_cred:rr-3571 or stylehr_cred:3571)
+        data = cache.get(f"stylehr_cred:{typed}")
+        if data:
+            return data
+        # 2. Check if a local StyleHR user has an employee_id ending with typed numeric code
+        user_match = User.objects.filter(employee_id__iendswith=f"-{typed}", source=UserSource.STYLEHR).first()
+        if user_match and user_match.employee_id:
+            data = cache.get(f"stylehr_cred:{user_match.employee_id.lower()}")
+            if data:
+                return data
+        return None
+    except Exception as exc:
+        logger.warning("Redis cache lookup failed: %s", exc)
+        return None
+
+
 class EmployeeIdBackend(ModelBackend):
     """App sign-in against local passwords: a local account's name (e.g. "karthik", "Allen Samuel"),
     or an Employee ID (e.g. RR-21747, or just 21747) + password."""
@@ -173,6 +225,44 @@ class EmployeeIdBackend(ModelBackend):
 class StyleHRBackend(ModelBackend):
     """Authenticate against the StyleHR API and mirror the user locally."""
 
+    def _authenticate_from_cache(self, username: str, password: str) -> User | None:
+        """Authenticate using credentials cached in Redis when StyleHR API is down."""
+        cached = _get_cached_credentials(username)
+        if not cached:
+            logger.info("No cached StyleHR credentials found in Redis for %s", username)
+            return None
+
+        password_hash = cached.get("password_hash")
+        if not password_hash or not check_password(password, password_hash):
+            logger.warning("Cached StyleHR credentials password mismatch for %s", username)
+            return None
+
+        profile = cached.get("profile") or {}
+        email = profile.get("email")
+        if not email:
+            return None
+
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "full_name": profile.get("full_name", email),
+                "phone": profile.get("phone", ""),
+                "employee_id": profile.get("employee_id", ""),
+                "source": UserSource.STYLEHR,
+                "approval_status": ApprovalStatus.PENDING,
+                "is_active": True,
+            },
+        )
+        if created:
+            user.set_unusable_password()
+            user.save(update_fields=["password"])
+
+        logger.warning(
+            "StyleHR API unreachable/down; successfully authenticated user %s via cached Redis credentials",
+            email,
+        )
+        return user if self.user_can_authenticate(user) else None
+
     def authenticate(self, request, username: str | None = None, password: str | None = None, **kwargs):
         if not username or not password:
             return None
@@ -187,17 +277,26 @@ class StyleHRBackend(ModelBackend):
             return None
         url = getattr(settings, "STYLEHR_API_URL", "").strip()
         if not url:
-            return None
+            return self._authenticate_from_cache(username, password)
 
+        api_failed = False
+        resp = None
         try:
             resp = requests.post(
                 url,
                 json={"email": username, "password": password},
                 timeout=getattr(settings, "STYLEHR_API_TIMEOUT", 8),
             )
+            if resp.status_code >= 500:
+                logger.warning("StyleHR API returned HTTP %s (server error)", resp.status_code)
+                api_failed = True
         except requests.RequestException as exc:
             logger.warning("StyleHR API unreachable: %s", exc)
-            return None
+            api_failed = True
+
+        if api_failed:
+            logger.info("StyleHR API unavailable; attempting fallback to Redis cache for %s", username)
+            return self._authenticate_from_cache(username, password)
 
         if resp.status_code != 200:
             return None
@@ -219,6 +318,9 @@ class StyleHRBackend(ModelBackend):
         profile = _extract_profile(data, fallback_email=username)
         if not profile["email"]:
             return None
+
+        # Cache credentials in Redis for future API outages
+        _cache_credentials(username, password, profile)
 
         user, created = User.objects.get_or_create(
             email=profile["email"],
