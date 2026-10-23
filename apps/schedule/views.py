@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime, time
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_time
 from django.views.decorators.http import require_http_methods
 
@@ -15,6 +17,7 @@ from apps.accounts.models import Role, User
 from apps.checklists.models import ChecklistTemplate
 from apps.core.audit import Action, diff, log_event
 
+from .exports import export_plans_to_csv, export_plans_to_excel
 from .forms import VisitPlanForm
 from .models import PlanStatus, VisitPlan
 from .selectors import plans_visible_to
@@ -108,7 +111,13 @@ def _serialize(plan: VisitPlan, user=None) -> dict:
             "can_start": bool(user and _can_start(user, plan)),
             "start_visit_url": reverse("schedule:plan_start_visit", args=[plan.id]),
             "reschedule_url": reverse("schedule:api_event_reschedule", args=[plan.id]),
+            "export_excel_url": reverse("schedule:plan_export_excel", args=[plan.id]),
+            "export_csv_url": reverse("schedule:plan_export_csv", args=[plan.id]),
             "visit_url": reverse("visits:visit_detail", args=[plan.visit_id]) if plan.visit_id else None,
+            "store_name": f"{plan.store.code} · {plan.store.name}",
+            "store_latitude": float(plan.store.latitude) if plan.store.latitude is not None else None,
+            "store_longitude": float(plan.store.longitude) if plan.store.longitude is not None else None,
+            "store_geofence_radius": plan.store.geofence_radius_meters or 250,
         },
     }
 
@@ -264,8 +273,31 @@ def plan_start_visit(request, pk):
     plan = get_object_or_404(VisitPlan, pk=pk)
     if not _can_start(request.user, plan):
         return HttpResponseForbidden()
+
+    raw_lat = (request.POST.get("user_latitude") or "").strip()
+    raw_lon = (request.POST.get("user_longitude") or "").strip()
+    user_lat = Decimal(raw_lat) if raw_lat else None
+    user_lon = Decimal(raw_lon) if raw_lon else None
+
+    from apps.core.geo import verify_user_at_store
+    is_valid, error_msg, dist = verify_user_at_store(
+        store=plan.store,
+        user_latitude=user_lat,
+        user_longitude=user_lon,
+        is_admin_bypass=request.user.is_admin_role,
+    )
+    if not is_valid:
+        messages.error(request, error_msg)
+        return redirect("schedule:plan_detail", pk=plan.pk)
+
     try:
-        start_visit_from_plan(plan=plan, user=request.user)
+        start_visit_from_plan(
+            plan=plan,
+            user=request.user,
+            started_latitude=user_lat,
+            started_longitude=user_lon,
+            started_distance_meters=dist if user_lat is not None else None,
+        )
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect("schedule:plan_detail", pk=plan.pk)
@@ -284,8 +316,8 @@ def plan_start_visit(request, pk):
 def api_events(request):
     qs = plans_visible_to(request.user)
 
-    start = request.GET.get("start")
-    end = request.GET.get("end")
+    start = request.GET.get("date_from") or request.GET.get("start")
+    end = request.GET.get("date_to") or request.GET.get("end")
     if start:
         qs = qs.filter(planned_date__gte=parse_date(start[:10]))
     if end:
@@ -324,3 +356,115 @@ def api_event_reschedule(request, pk):
         log_event(request, Action.PLAN_RESCHEDULED, plan, label=_plan_label(plan), changes=changes,
                   details="Moved on the calendar")
     return JsonResponse(_serialize(plan, request.user))
+
+
+# ============================================================
+# Export Views (Excel & CSV with all details - Admin, COO, Professional User only)
+# ============================================================
+def _filter_plans_for_export(request):
+    qs = plans_visible_to(request.user).select_related(
+        "store", "cluster_manager", "created_by", "template", "visit", "visit__approved_by"
+    )
+
+    # Export only planned schedules as requested
+    qs = qs.filter(status=PlanStatus.PLANNED)
+    filter_desc_parts = ["Status: Planned Only"]
+
+    cm = request.GET.get("cm")
+    if cm:
+        try:
+            qs = qs.filter(cluster_manager_id=cm)
+            cm_obj = User.objects.filter(pk=cm).first()
+            if cm_obj:
+                filter_desc_parts.append(f"User: {cm_obj.employee_label}")
+        except Exception:
+            pass
+
+    date_from_str = request.GET.get("date_from") or request.GET.get("start")
+    date_to_str = request.GET.get("date_to") or request.GET.get("end")
+
+    has_date_filter = False
+    if date_from_str:
+        d_start = parse_date(date_from_str[:10])
+        if d_start:
+            qs = qs.filter(planned_date__gte=d_start)
+            filter_desc_parts.append(f"From: {d_start:%d-%b-%Y}")
+            has_date_filter = True
+    if date_to_str:
+        d_end = parse_date(date_to_str[:10])
+        if d_end:
+            qs = qs.filter(planned_date__lte=d_end)
+            filter_desc_parts.append(f"To: {d_end:%d-%b-%Y}")
+            has_date_filter = True
+
+    # If no date filter is selected and 'all' is not requested, default to current month
+    if not has_date_filter and not request.GET.get("all"):
+        import calendar
+        today = timezone.localdate()
+        month_start = today.replace(day=1)
+        _, num_days = calendar.monthrange(today.year, today.month)
+        month_end = today.replace(day=num_days)
+        qs = qs.filter(planned_date__gte=month_start, planned_date__lte=month_end)
+        filter_desc_parts.append(f"Month: {today.strftime('%B %Y')} ({month_start:%d-%b-%Y} to {month_end:%d-%b-%Y})")
+
+    desc = " | ".join(filter_desc_parts)
+    return qs.order_by("planned_date", "start_time"), desc
+
+
+@login_required
+def plan_export_excel(request):
+    if not request.user.is_admin_role:
+        return HttpResponseForbidden("Only Admin, COO, and Professional users can export schedules.")
+    qs, desc = _filter_plans_for_export(request)
+    timestamp = timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M%S")
+    return export_plans_to_excel(
+        qs,
+        filename=f"Planned_Schedules_{timestamp}.xlsx",
+        filter_description=desc,
+    )
+
+
+@login_required
+def plan_export_csv(request):
+    if not request.user.is_admin_role:
+        return HttpResponseForbidden("Only Admin, COO, and Professional users can export schedules.")
+    qs, _ = _filter_plans_for_export(request)
+    timestamp = timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M%S")
+    return export_plans_to_csv(
+        qs,
+        filename=f"Planned_Schedules_{timestamp}.csv",
+    )
+
+
+@login_required
+def single_plan_export_excel(request, pk):
+    if not request.user.is_admin_role:
+        return HttpResponseForbidden("Only Admin, COO, and Professional users can export schedules.")
+    plan = get_object_or_404(
+        plans_visible_to(request.user).select_related(
+            "store", "cluster_manager", "created_by", "template", "visit", "visit__approved_by"
+        ),
+        pk=pk,
+    )
+    return export_plans_to_excel(
+        [plan],
+        filename=f"Schedule_{plan.store.code}_{plan.planned_date:%Y%m%d}.xlsx",
+        filter_description=f"Single Plan: {plan.store.code} on {plan.planned_date:%d-%b-%Y}",
+    )
+
+
+@login_required
+def single_plan_export_csv(request, pk):
+    if not request.user.is_admin_role:
+        return HttpResponseForbidden("Only Admin, COO, and Professional users can export schedules.")
+    plan = get_object_or_404(
+        plans_visible_to(request.user).select_related(
+            "store", "cluster_manager", "created_by", "template", "visit", "visit__approved_by"
+        ),
+        pk=pk,
+    )
+    return export_plans_to_csv(
+        [plan],
+        filename=f"Schedule_{plan.store.code}_{plan.planned_date:%Y%m%d}.csv",
+    )
+

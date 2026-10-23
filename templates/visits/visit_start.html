@@ -95,8 +95,18 @@
         </div>
       </div>
 
+      <!-- Hidden GPS inputs -->
+      {{ form.user_latitude }}
+      {{ form.user_longitude }}
+
+      <!-- Geolocation live status banner -->
+      <div id="geo_status_box" class="alert" style="display:none; align-items:flex-start; gap:10px; margin-top:14px; margin-bottom:14px;">
+        <i id="geo_status_icon" class="bi bi-geo-alt-fill" style="font-size:18px;"></i>
+        <div id="geo_status_text" style="font-size:13px; line-height:1.45;"></div>
+      </div>
+
       <div class="flex gap-2 mt-4">
-        <button class="btn btn-primary" type="submit"><i class="bi bi-play-fill"></i> Start Visit</button>
+        <button id="btnStartVisit" class="btn btn-primary" type="submit"><i class="bi bi-play-fill"></i> Start Visit</button>
         <a href="{% url 'visits:visit_list' %}" class="btn btn-ghost">Cancel</a>
       </div>
     </form>
@@ -133,6 +143,135 @@ document.addEventListener("DOMContentLoaded", function () {
     deptSelect.addEventListener("change", updateLayout);
     updateLayout();
   }
+
+  // --- Geolocation Enforcement Logic ---
+  const form = document.getElementById("visitStartForm");
+  const btnStart = document.getElementById("btnStartVisit");
+  const storeSelect = document.getElementById("id_store");
+  const latInput = document.getElementById("id_user_latitude");
+  const lonInput = document.getElementById("id_user_longitude");
+  const statusBox = document.getElementById("geo_status_box");
+  const statusIcon = document.getElementById("geo_status_icon");
+  const statusText = document.getElementById("geo_status_text");
+
+  const isAdmin = {{ user.is_admin_role|yesno:"true,false" }};
+  const storesGeo = {{ stores_geo_json|default:"{}"|safe }};
+
+  function haversineDistanceMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = (x) => (x * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function showStatus(type, message, iconClass) {
+    statusBox.style.display = "flex";
+    statusBox.className = "alert " + (type === "success" ? "alert-success" : type === "danger" ? "alert-danger" : "alert-info");
+    statusIcon.className = "bi " + (iconClass || (type === "success" ? "bi-check-circle-fill text-success" : type === "danger" ? "bi-exclamation-triangle-fill text-danger" : "bi-geo-alt-fill text-brand"));
+    statusText.innerHTML = message;
+  }
+
+  let isVerified = false;
+
+  form.addEventListener("submit", function (e) {
+    if (isVerified || isAdmin) {
+      // If admin, or already verified, allow submission
+      return true;
+    }
+
+    const storeId = storeSelect ? storeSelect.value : "";
+    const storeInfo = storesGeo[storeId];
+
+    if (!storeInfo || storeInfo.lat === null || storeInfo.lon === null) {
+      // If store does not have coordinates configured yet, allow submission
+      return true;
+    }
+
+    e.preventDefault();
+
+    if (!navigator.geolocation) {
+      showStatus("danger", "Geolocation is not supported by your browser. Please use Chrome/Safari on mobile with GPS enabled.");
+      return false;
+    }
+
+    btnStart.disabled = true;
+    const originalBtnHtml = btnStart.innerHTML;
+    btnStart.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Verifying Location...`;
+    showStatus("info", `Checking GPS to verify you are physically at <strong>${storeInfo.code} · ${storeInfo.name}</strong>...`);
+
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        const uLat = pos.coords.latitude;
+        const uLon = pos.coords.longitude;
+        latInput.value = uLat.toFixed(6);
+        lonInput.value = uLon.toFixed(6);
+
+        const dist = haversineDistanceMeters(uLat, uLon, storeInfo.lat, storeInfo.lon);
+        const allowedRadius = storeInfo.radius || 250;
+
+        if (dist <= allowedRadius) {
+          const distRounded = Math.round(dist);
+          showStatus(
+            "success",
+            `<strong>Location Verified!</strong> You are at <strong>${storeInfo.code} · ${storeInfo.name}</strong> (~${distRounded}m from store). Starting visit...`
+          );
+          isVerified = true;
+          setTimeout(function () {
+            form.submit();
+          }, 400);
+        } else {
+          btnStart.disabled = false;
+          btnStart.innerHTML = originalBtnHtml;
+          showStatus(
+            "danger",
+            `<strong>Store Location Rule Enforced:</strong><br>` +
+            `You are not at <strong>${storeInfo.code} · ${storeInfo.name}</strong>.<br>` +
+            `You can only start a visit when you are physically inside or within <strong>${allowedRadius}m</strong> of this store.`
+          );
+          if (window.showLocationAlert) {
+            window.showLocationAlert({
+              title: "Store Location Rule Enforced",
+              storeName: storeInfo.code + " · " + storeInfo.name,
+              allowedRadius: allowedRadius,
+            });
+          }
+        }
+      },
+      function (err) {
+        btnStart.disabled = false;
+        btnStart.innerHTML = originalBtnHtml;
+        let errMsg = "Could not verify your location. Please check GPS settings and try again.";
+        if (err.code === 1) {
+          errMsg = "<strong>Location Permission Denied:</strong> You must allow browser location/GPS access to verify you are at the store before starting a visit.";
+        } else if (err.code === 2) {
+          errMsg = "<strong>GPS Signal Unavailable:</strong> Please ensure device location is turned on and try again.";
+        } else if (err.code === 3) {
+          errMsg = "<strong>Location Request Timed Out:</strong> GPS took too long to respond. Please try again.";
+        }
+        showStatus("danger", errMsg);
+        if (window.showLocationAlert) {
+          window.showLocationAlert({
+            title: "GPS Location Required",
+            storeName: storeInfo.code + " · " + storeInfo.name,
+            distanceStr: "Permission Denied",
+            allowedRadius: allowedRadius,
+            message: errMsg,
+          });
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  });
 });
 </script>
 {% endblock %}

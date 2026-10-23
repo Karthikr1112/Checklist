@@ -201,7 +201,87 @@
         });
       });
     });
+
+    // --- Global In-App Location Enforcement Modal ---
+    window.showLocationAlert = function (opts) {
+      const modal = document.getElementById('geoRuleModal');
+      if (!modal) {
+        alert((opts.title || 'Store Location Rule Enforced') + '\n\n' + (opts.message || ''));
+        return;
+      }
+      const titleEl = document.getElementById('geoModalTitle');
+      const storeEl = document.getElementById('geoModalStore');
+      const radEl = document.getElementById('geoModalRadius');
+      const msgEl = document.getElementById('geoModalMessage');
+      const subEl = document.getElementById('geoModalSubtitle');
+
+      if (titleEl && opts.title) titleEl.textContent = opts.title;
+      if (storeEl) storeEl.textContent = opts.storeName || 'Selected Store';
+      if (radEl) radEl.textContent = 'Within ' + (opts.allowedRadius || 250) + 'm';
+
+      if (opts.customSubtitle && subEl) {
+        subEl.innerHTML = opts.customSubtitle;
+      } else if (subEl) {
+        subEl.textContent = 'You must be physically present at the store to start this visit.';
+      }
+
+      if (opts.message && msgEl) {
+        msgEl.innerHTML = opts.message;
+        msgEl.style.display = 'block';
+      } else if (msgEl) {
+        msgEl.style.display = 'none';
+      }
+
+      modal.style.display = 'grid';
+      modal.classList.add('open');
+    };
+
+    window.closeLocationAlert = function () {
+      const modal = document.getElementById('geoRuleModal');
+      if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('open');
+      }
+    };
   </script>
+
+  <!-- Global Location Rule Enforcement Modal (In-App popup) -->
+  <div class="modal-back" id="geoRuleModal" style="z-index: 9999; display: none; place-items: center;">
+    <div class="modal-card" style="max-width: 440px; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35); border: 1px solid rgba(0,0,0,0.06); animation: geoPopIn .22s cubic-bezier(.16, 1, .3, 1);">
+      <div style="padding: 26px 24px 16px 24px; text-align: center;">
+        <div style="width: 58px; height: 58px; border-radius: 50%; background: #fee2e2; color: #dc2626; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.18);">
+          <i class="bi bi-geo-alt-fill"></i>
+        </div>
+        <h3 id="geoModalTitle" style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Store Location Rule Enforced</h3>
+        <p id="geoModalSubtitle" style="font-size: 13.5px; color: #64748b; margin: 0 0 18px 0; line-height: 1.5;">You must be physically present at the store to start this visit.</p>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; text-align: left; margin-bottom: 16px;">
+          <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 4px;">Target Store</div>
+          <div id="geoModalStore" style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">—</div>
+
+          <div style="border-top: 1px dashed #cbd5e1; padding-top: 10px;">
+            <div style="font-size: 11px; color: #64748b; font-weight: 500; margin-bottom: 2px;">Allowed Radius</div>
+            <div id="geoModalRadius" style="font-size: 15px; font-weight: 700; color: #16a34a;">Within 250m</div>
+          </div>
+        </div>
+
+        <div id="geoModalMessage" style="font-size: 12.5px; color: #64748b; line-height: 1.45; text-align: left; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; display: none;"></div>
+      </div>
+      <div style="padding: 12px 24px 22px 24px; background: #fff; display: flex; gap: 8px;">
+        <button type="button" class="btn btn-primary" style="flex: 1; padding: 10px 16px; font-size: 14px; font-weight: 600; justify-content: center;" onclick="window.closeLocationAlert()">
+          <i class="bi bi-check2"></i> Understood
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes geoPopIn {
+      from { opacity: 0; transform: scale(0.92) translateY(12px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+  </style>
+
   {% block extra_scripts %}{% endblock %}
 </body>
 </html>

@@ -21,6 +21,9 @@
       {% if visit.approved_by %}
         · <span style="color:var(--success);"><i class="bi bi-check-circle-fill"></i> Approved by {{ visit.approved_by.full_name }} on {{ visit.approved_at|date:"d M Y, H:i" }}</span>
       {% endif %}
+      {% if visit.started_distance_meters is not None %}
+        · <span class="badge badge-success badge-dot" title="Started at store location (GPS verified)"><i class="bi bi-geo-alt-fill"></i> Location Verified ({{ visit.started_distance_meters }}m)</span>
+      {% endif %}
     </p>
   </div>
   <div class="flex gap-2 page-actions">
@@ -39,8 +42,11 @@
       </form>
     {% endif %}
     {% if visit.status == 'IN_PROGRESS' or visit.status == 'DRAFT' %}
-      <form method="post" action="{% url 'visits:visit_submit' visit.pk %}" style="margin:0">
-        {% csrf_token %}<button class="btn btn-success"><i class="bi bi-send"></i> Submit</button>
+      <form id="detailSubmitForm" method="post" action="{% url 'visits:visit_submit' visit.pk %}" style="margin:0">
+        {% csrf_token %}
+        <input type="hidden" name="user_latitude" id="detail_user_lat">
+        <input type="hidden" name="user_longitude" id="detail_user_lon">
+        <button id="detailSubmitBtn" class="btn btn-success"><i class="bi bi-send"></i> Submit</button>
       </form>
     {% endif %}
     {% if visit.status == 'SUBMITTED' and can_approve %}
@@ -121,4 +127,97 @@
     <div><div style="border-top:1px solid #111;padding-top:6px">Approved by<br><strong>{% if visit.approved_by %}{{ visit.approved_by.employee_label }}{% else %}&nbsp;{% endif %}</strong></div></div>
   </div>
 </div>
+
+<script>
+(function() {
+  const submitForm = document.getElementById('detailSubmitForm');
+  const submitBtn = document.getElementById('detailSubmitBtn');
+  const storeLat = {{ visit.store.latitude|default:"null" }};
+  const storeLon = {{ visit.store.longitude|default:"null" }};
+  const storeRadius = {{ visit.store.geofence_radius_meters|default:250 }};
+  const storeName = "{{ visit.store.name|escapejs }}";
+  const isAdmin = {{ user.is_admin_role|yesno:"true,false" }};
+  let isVerified = false;
+
+  function toRad(x) { return (x * Math.PI) / 180; }
+  function calcDist(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  if (submitForm && submitBtn) {
+    submitForm.addEventListener('submit', function(e) {
+      if (isVerified || isAdmin || storeLat === null || storeLon === null) {
+        return true;
+      }
+      e.preventDefault();
+
+      if (!navigator.geolocation) {
+        if (window.showLocationAlert) {
+          window.showLocationAlert({
+            title: "GPS Location Required",
+            storeName: storeName,
+            distanceStr: "Unavailable",
+            allowedRadius: storeRadius,
+            message: "Geolocation is not supported by your browser. Please use a device with GPS.",
+          });
+        }
+        return false;
+      }
+
+      const origHtml = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Verifying Location…`;
+
+      navigator.geolocation.getCurrentPosition(
+        function(pos) {
+          const uLat = pos.coords.latitude;
+          const uLon = pos.coords.longitude;
+          const dist = calcDist(storeLat, storeLon, uLat, uLon);
+          const distM = Math.round(dist);
+
+          if (dist <= storeRadius) {
+            document.getElementById('detail_user_lat').value = uLat;
+            document.getElementById('detail_user_lon').value = uLon;
+            isVerified = true;
+            submitForm.submit();
+          } else {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origHtml;
+            if (window.showLocationAlert) {
+              window.showLocationAlert({
+                title: "Cannot Submit Outside Store",
+                storeName: storeName,
+                allowedRadius: storeRadius,
+                message: `You cannot submit or close this checklist from outside the store. You must be physically at the store (within ${storeRadius}m) to submit this report.`,
+              });
+            }
+          }
+        },
+        function(err) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origHtml;
+          let msg = "Unable to retrieve your current location. Please allow GPS access to submit.";
+          if (err.code === 1) msg = "Location permission was denied. You must allow GPS access to submit this report.";
+          if (window.showLocationAlert) {
+            window.showLocationAlert({
+              title: "GPS Location Required",
+              storeName: storeName,
+              distanceStr: "Permission Denied",
+              allowedRadius: storeRadius,
+              message: msg,
+            });
+          }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+  }
+})();
+</script>
 {% endblock %}

@@ -1,4 +1,6 @@
+from django import forms
 from django.contrib import admin
+from django.db import models
 
 from apps.accounts.models import User
 from apps.stores.models import Store
@@ -42,6 +44,29 @@ class VisitPlanAdmin(admin.ModelAdmin):
         "template__name",
     )
     date_hierarchy = "planned_date"
+
+    formfield_overrides = {
+        models.DateField: {
+            "widget": forms.DateInput(
+                format="%Y-%m-%d",
+                attrs={
+                    "type": "date",
+                    "class": "form-control",
+                    "style": "max-width: 260px; padding: 6px 10px; font-size: 14px;",
+                },
+            )
+        },
+        models.TimeField: {
+            "widget": forms.TimeInput(
+                format="%H:%M",
+                attrs={
+                    "type": "time",
+                    "class": "form-control",
+                    "style": "max-width: 260px; padding: 6px 10px; font-size: 14px;",
+                },
+            )
+        },
+    }
 
     fieldsets = (
         (

@@ -13,8 +13,34 @@ from .models import Response, Visit, VisitResponse, VisitStatus
 
 
 @transaction.atomic
-def start_visit(*, store: Store, template: ChecklistTemplate, cluster_manager, visit_date, audit_type) -> Visit:
+def start_visit(
+    *,
+    store: Store,
+    template: ChecklistTemplate,
+    cluster_manager,
+    visit_date,
+    audit_type,
+    started_latitude=None,
+    started_longitude=None,
+    started_distance_meters=None,
+) -> Visit:
     """Create a Visit and pre-create empty VisitResponse rows for every question."""
+    def _to_decimal(val):
+        if val in (None, ""):
+            return None
+        try:
+            return Decimal(str(val))
+        except Exception:
+            return None
+
+    def _to_int(val):
+        if val in (None, ""):
+            return None
+        try:
+            return int(val)
+        except Exception:
+            return None
+
     visit = Visit.objects.create(
         store=store,
         template=template,
@@ -22,6 +48,9 @@ def start_visit(*, store: Store, template: ChecklistTemplate, cluster_manager, v
         visit_date=visit_date,
         audit_type=audit_type,
         status=VisitStatus.IN_PROGRESS,
+        started_latitude=_to_decimal(started_latitude),
+        started_longitude=_to_decimal(started_longitude),
+        started_distance_meters=_to_int(started_distance_meters),
     )
     questions = list(
         template.sections.prefetch_related("questions").values_list("questions__id", flat=True)

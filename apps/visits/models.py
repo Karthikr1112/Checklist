@@ -53,6 +53,11 @@ class Visit(BaseModel):
 
     summary = models.TextField(blank=True, help_text="Overall visit summary (VM Team checklists).")
 
+    # Geolocation verification on start
+    started_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, help_text="GPS Latitude when visit was started.")
+    started_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, help_text="GPS Longitude when visit was started.")
+    started_distance_meters = models.PositiveIntegerField(null=True, blank=True, help_text="Distance in meters from store when visit was started.")
+
     submitted_at = models.DateTimeField(null=True, blank=True)
     approved_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey(

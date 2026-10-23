@@ -8,7 +8,11 @@
     <h1>{{ plan.store.code }} · {{ plan.store.name }}</h1>
     <p>{{ plan.planned_date|date:"l, d M Y" }} · {{ plan.start_time|time:"H:i" }}–{{ plan.end_time|time:"H:i" }}</p>
   </div>
-  <div class="flex gap-2">
+  <div class="flex gap-2" style="align-items:center;flex-wrap:wrap">
+    {% if user.is_admin_role %}
+    <a class="btn btn-secondary" href="{% url 'schedule:plan_export_excel' plan.pk %}" title="Export this plan to Excel"><i class="bi bi-file-earmark-excel"></i> Excel</a>
+    <a class="btn btn-secondary" href="{% url 'schedule:plan_export_csv' plan.pk %}" title="Export this plan to CSV"><i class="bi bi-filetype-csv"></i> CSV</a>
+    {% endif %}
     {% if can_edit %}
       <a class="btn btn-secondary" href="{% url 'schedule:plan_edit' plan.pk %}"><i class="bi bi-pencil"></i> Edit</a>
       <button type="button" class="btn btn-danger" onclick="openDeleteModal()"><i class="bi bi-trash"></i> Delete</button>
@@ -17,8 +21,11 @@
       <a class="btn btn-primary" href="{% url 'visits:visit_detail' plan.visit_id %}"><i class="bi bi-clipboard-data"></i> Open Visit</a>
     {% elif can_start %}
       {% if plan.status == 'PLANNED' or plan.status == 'CHECKED_IN' %}
-      <form method="post" action="{% url 'schedule:plan_start_visit' plan.pk %}" style="margin:0">
-        {% csrf_token %}<button class="btn btn-success"><i class="bi bi-play-fill"></i> Start Visit</button>
+      <form id="planStartForm" method="post" action="{% url 'schedule:plan_start_visit' plan.pk %}" style="margin:0">
+        {% csrf_token %}
+        <input type="hidden" name="user_latitude" id="plan_user_lat">
+        <input type="hidden" name="user_longitude" id="plan_user_lon">
+        <button id="btnPlanStart" class="btn btn-success"><i class="bi bi-play-fill"></i> Start Visit</button>
       </form>
       {% endif %}
     {% endif %}
@@ -93,4 +100,88 @@
   if (delM) delM.addEventListener('click', (e) => { if (e.target === delM) closeDeleteModal(); });
 </script>
 {% endif %}
+
+<script>
+(function() {
+  const form = document.getElementById("planStartForm");
+  const btn = document.getElementById("btnPlanStart");
+  if (!form || !btn) return;
+
+  const isAdmin = {{ user.is_admin_role|yesno:"true,false" }};
+  const storeLat = {% if plan.store.latitude %}{{ plan.store.latitude }}{% else %}null{% endif %};
+  const storeLon = {% if plan.store.longitude %}{{ plan.store.longitude }}{% else %}null{% endif %};
+  const storeRadius = {{ plan.store.geofence_radius_meters|default:250 }};
+  const storeName = "{{ plan.store.code }} · {{ plan.store.name|escapejs }}";
+
+  function haversineDistanceMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = (x) => (x * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  let verified = false;
+
+  form.addEventListener("submit", function(e) {
+    if (verified || isAdmin || storeLat === null || storeLon === null) {
+      return true;
+    }
+    e.preventDefault();
+
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser. Please use a device/browser with GPS.");
+      return false;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Verifying Location...`;
+
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        const uLat = pos.coords.latitude;
+        const uLon = pos.coords.longitude;
+        document.getElementById("plan_user_lat").value = uLat.toFixed(6);
+        document.getElementById("plan_user_lon").value = uLon.toFixed(6);
+
+        const dist = haversineDistanceMeters(uLat, uLon, storeLat, storeLon);
+        if (dist <= storeRadius) {
+          verified = true;
+          btn.innerHTML = `<i class="bi bi-check2"></i> Location Verified! Starting...`;
+          setTimeout(() => form.submit(), 300);
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+          window.showLocationAlert({
+            title: "Store Location Rule Enforced",
+            storeName: storeName,
+            allowedRadius: storeRadius,
+          });
+        }
+      },
+      function(err) {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        let msg = "Could not verify your location. Please check device GPS settings and try again.";
+        if (err.code === 1) {
+          msg = "Location permission was denied. Please allow browser location/GPS access to verify you are at the store.";
+        }
+        window.showLocationAlert({
+          title: "GPS Location Required",
+          storeName: storeName,
+          distanceStr: "Permission Denied",
+          allowedRadius: storeRadius,
+          message: msg,
+        });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
+})();
+</script>
 {% endblock %}

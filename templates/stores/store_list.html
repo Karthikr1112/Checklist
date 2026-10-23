@@ -18,7 +18,16 @@
         <tr>
           <td><strong>{{ s.code }}</strong></td>
           <td>{{ s.name }}</td>
-          <td>{{ s.city }}</td>
+          <td>
+            {{ s.city }}
+            {% if s.latitude and s.longitude %}
+              <div style="font-size: 11px; margin-top: 2px;">
+                <a href="https://www.google.com/maps?q={{ s.latitude }},{{ s.longitude }}" target="_blank" rel="noopener" style="color: var(--color-primary, #2563eb); text-decoration: none;" title="Open in Google Maps">
+                  <i class="bi bi-geo-alt-fill"></i> {{ s.latitude }}, {{ s.longitude }}
+                </a>
+              </div>
+            {% endif %}
+          </td>
           <td>{{ s.region|default:'—' }}</td>
           <td>
             {% with cms=s.assigned_cluster_managers %}

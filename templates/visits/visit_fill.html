@@ -11,6 +11,20 @@
   <a class="btn btn-secondary" href="{% url 'visits:visit_detail' visit.pk %}"><i class="bi bi-arrow-left"></i> Back to summary</a>
 </div>
 
+<div id="geoStatusBar" class="mb-3" style="border-radius:var(--radius-sm);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fffbeb;border:1px solid #fef3c7;color:#92400e;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span id="geoSpinner" class="spinner-border spinner-border-sm" role="status" style="width:1.2rem;height:1.2rem;border-width:0.18em;"></span>
+    <i id="geoIcon" class="bi bi-geo-alt-fill" style="display:none;font-size:18px;"></i>
+    <div>
+      <div id="geoStatusTitle" style="font-weight:700;font-size:13.5px;">Checking Store Location…</div>
+      <div id="geoStatusMsg" style="font-size:12px;opacity:0.9;">Verifying you are physically at {{ visit.store.name }} (within {{ visit.store.geofence_radius_meters|default:250 }}m).</div>
+    </div>
+  </div>
+  <button type="button" id="geoRetryBtn" class="btn btn-warning btn-sm" style="display:none;font-size:12px;white-space:nowrap;" onclick="verifyUserLocation(true)">
+    <i class="bi bi-arrow-clockwise"></i> Re-verify Location
+  </button>
+</div>
+
 <div class="alert alert-info">
   <i class="bi bi-lightbulb"></i>
   <div>Pick <strong>Yes / No / NA</strong> per question. Add observations (Work Done Today / Blockers) and attach photos where useful. Compliance is auto-calculated.</div>
@@ -89,14 +103,179 @@
 </div>
 {% endif %}
 
-<form method="post" action="{% url 'visits:visit_submit' visit.pk %}" class="mt-4">
+<form id="visitSubmitForm" method="post" action="{% url 'visits:visit_submit' visit.pk %}" class="mt-4">
   {% csrf_token %}
-  <button class="btn btn-success btn-lg btn-block"><i class="bi bi-send-check"></i> Submit Visit for Review</button>
+  <input type="hidden" name="user_latitude" class="geo-user-lat" id="submit_user_lat">
+  <input type="hidden" name="user_longitude" class="geo-user-lon" id="submit_user_lon">
+  <button type="submit" id="btnSubmitVisit" class="btn btn-success btn-lg btn-block"><i class="bi bi-send-check"></i> Submit Visit for Review</button>
 </form>
 
 <script>
 (function () {
   const TYPING_DEBOUNCE_MS = 700;
+  const STORE_LAT = {{ visit.store.latitude|default:"null" }};
+  const STORE_LON = {{ visit.store.longitude|default:"null" }};
+  const STORE_RADIUS = {{ visit.store.geofence_radius_meters|default:250 }};
+  const STORE_NAME = "{{ visit.store.name|escapejs }}";
+  const IS_ADMIN = {{ user.is_admin_role|yesno:"true,false" }};
+
+  let currentLat = null;
+  let currentLon = null;
+  let isLocationVerified = false;
+
+  function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = (x) => (x * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function setChecklistLocked(locked) {
+    document.querySelectorAll('.js-autosave-field, .q-select-resp, .q-obs-input, .q-photo-form input, .q-photo-form button, #btnSubmitVisit').forEach(function (el) {
+      el.disabled = locked;
+    });
+  }
+
+  function handleGeoError(errMsg, isUserRetry) {
+    isLocationVerified = false;
+    setChecklistLocked(true);
+    const spinner = document.getElementById('geoSpinner');
+    const icon = document.getElementById('geoIcon');
+    const title = document.getElementById('geoStatusTitle');
+    const msg = document.getElementById('geoStatusMsg');
+    const retryBtn = document.getElementById('geoRetryBtn');
+    const bar = document.getElementById('geoStatusBar');
+
+    if (spinner) spinner.style.display = 'none';
+    if (icon) {
+      icon.className = 'bi bi-exclamation-triangle-fill';
+      icon.style.display = 'inline-block';
+    }
+    if (title) title.textContent = 'GPS Location Required';
+    if (msg) msg.textContent = errMsg;
+    if (bar) {
+      bar.style.background = '#fef2f2';
+      bar.style.border = '1px solid #fee2e2';
+      bar.style.color = '#991b1b';
+    }
+    if (retryBtn) retryBtn.style.display = 'inline-block';
+
+    if (window.showLocationAlert) {
+      window.showLocationAlert({
+        title: "GPS Location Required",
+        storeName: STORE_NAME,
+        distanceStr: "Permission Denied / Unavailable",
+        allowedRadius: STORE_RADIUS,
+        message: errMsg,
+      });
+    }
+  }
+
+  window.verifyUserLocation = function (isUserRetry) {
+    if (IS_ADMIN || STORE_LAT === null || STORE_LON === null) {
+      isLocationVerified = true;
+      setChecklistLocked(false);
+      const bar = document.getElementById('geoStatusBar');
+      if (bar) bar.style.display = 'none';
+      return;
+    }
+
+    setChecklistLocked(true);
+    const spinner = document.getElementById('geoSpinner');
+    const icon = document.getElementById('geoIcon');
+    const title = document.getElementById('geoStatusTitle');
+    const msg = document.getElementById('geoStatusMsg');
+    const retryBtn = document.getElementById('geoRetryBtn');
+    const bar = document.getElementById('geoStatusBar');
+
+    if (spinner) spinner.style.display = 'inline-block';
+    if (icon) icon.style.display = 'none';
+    if (retryBtn) retryBtn.style.display = 'none';
+    if (title) title.textContent = 'Checking Store Location…';
+    if (msg) msg.textContent = `Verifying you are physically at ${STORE_NAME} (within ${STORE_RADIUS}m).`;
+    if (bar) {
+      bar.style.background = '#fffbeb';
+      bar.style.border = '1px solid #fef3c7';
+      bar.style.color = '#92400e';
+      bar.style.display = 'flex';
+    }
+
+    if (!navigator.geolocation) {
+      handleGeoError("Geolocation is not supported by your browser. Please use a device with GPS.", isUserRetry);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        currentLat = pos.coords.latitude;
+        currentLon = pos.coords.longitude;
+        const dist = calculateDistance(STORE_LAT, STORE_LON, currentLat, currentLon);
+        const distM = Math.round(dist);
+
+        if (dist <= STORE_RADIUS) {
+          isLocationVerified = true;
+          setChecklistLocked(false);
+          if (spinner) spinner.style.display = 'none';
+          if (icon) {
+            icon.className = 'bi bi-check-circle-fill';
+            icon.style.display = 'inline-block';
+          }
+          if (title) title.textContent = `Location Confirmed: At ${STORE_NAME}`;
+          if (msg) msg.textContent = `Location verified. Checklist unlocked for editing and submission.`;
+          if (bar) {
+            bar.style.background = '#ecfdf5';
+            bar.style.border = '1px solid #a7f3d0';
+            bar.style.color = '#065f46';
+          }
+          if (retryBtn) retryBtn.style.display = 'none';
+
+          document.querySelectorAll('.geo-user-lat').forEach(el => el.value = currentLat);
+          document.querySelectorAll('.geo-user-lon').forEach(el => el.value = currentLon);
+        } else {
+          isLocationVerified = false;
+          setChecklistLocked(true);
+          if (spinner) spinner.style.display = 'none';
+          if (icon) {
+            icon.className = 'bi bi-geo-alt-fill';
+            icon.style.display = 'inline-block';
+          }
+          if (title) title.textContent = 'Store Location Required';
+          if (msg) msg.textContent = `You are outside ${STORE_NAME}. You must be within ${STORE_RADIUS}m of the store to fill, edit, or submit this checklist.`;
+          if (bar) {
+            bar.style.background = '#fef2f2';
+            bar.style.border = '1px solid #fee2e2';
+            bar.style.color = '#991b1b';
+          }
+          if (retryBtn) retryBtn.style.display = 'inline-block';
+
+          if (window.showLocationAlert) {
+            window.showLocationAlert({
+              title: "Store Location Required",
+              storeName: STORE_NAME,
+              allowedRadius: STORE_RADIUS,
+              message: `Checklists can only be filled, edited, or submitted while physically inside ${STORE_NAME} (within ${STORE_RADIUS}m).`,
+            });
+          }
+        }
+      },
+      function (err) {
+        let errMsg = "Unable to retrieve your current location. Please ensure GPS is enabled.";
+        if (err.code === 1) {
+          errMsg = "Location permission was denied. Please allow browser location/GPS access to verify you are at the store.";
+        }
+        handleGeoError(errMsg, isUserRetry);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  // Run location verification immediately on page load
+  verifyUserLocation(false);
 
   function setStatus(form, state) {
     const el = form.querySelector('.js-autosave-status');
@@ -117,8 +296,25 @@
   }
 
   async function submitForm(form) {
+    if (!IS_ADMIN && STORE_LAT !== null && STORE_LON !== null && !isLocationVerified) {
+      setStatus(form, 'error');
+      if (window.showLocationAlert) {
+        window.showLocationAlert({
+          title: "Store Location Required",
+          storeName: STORE_NAME,
+          distanceStr: "Location Unverified",
+          allowedRadius: STORE_RADIUS,
+          message: "You must be at the store location to fill or edit answers.",
+        });
+      }
+      return;
+    }
+
     setStatus(form, 'saving');
     const fd = new FormData(form);
+    if (currentLat !== null) fd.append('user_latitude', currentLat);
+    if (currentLon !== null) fd.append('user_longitude', currentLon);
+
     try {
       const res = await fetch(form.action, {
         method: 'POST',
@@ -126,6 +322,26 @@
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
         credentials: 'same-origin',
       });
+
+      if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.location_error) {
+          isLocationVerified = false;
+          setChecklistLocked(true);
+          setStatus(form, 'error');
+          if (window.showLocationAlert) {
+            window.showLocationAlert({
+              title: "Store Location Required",
+              storeName: STORE_NAME,
+              distanceStr: "Outside Geofence",
+              allowedRadius: STORE_RADIUS,
+              message: errData.error || "You are outside the store location. Answers cannot be saved.",
+            });
+          }
+          return;
+        }
+      }
+
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       if (!data.ok) throw new Error('save failed');
@@ -161,6 +377,67 @@
       }
     });
   });
+
+  // Location check when closing report (Submitting Visit for Review)
+  const submitFormEl = document.getElementById('visitSubmitForm');
+  const submitBtnEl = document.getElementById('btnSubmitVisit');
+  let isSubmitVerified = false;
+
+  if (submitFormEl && submitBtnEl) {
+    submitFormEl.addEventListener('submit', function (e) {
+      if (IS_ADMIN || STORE_LAT === null || STORE_LON === null || isSubmitVerified) {
+        return true;
+      }
+
+      e.preventDefault();
+
+      if (!navigator.geolocation) {
+        handleGeoError("Geolocation is not supported by your browser. Please use a device with GPS.", false);
+        return false;
+      }
+
+      const origHtml = submitBtnEl.innerHTML;
+      submitBtnEl.disabled = true;
+      submitBtnEl.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Verifying Location to Submit…`;
+
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          const uLat = pos.coords.latitude;
+          const uLon = pos.coords.longitude;
+          const dist = calculateDistance(STORE_LAT, STORE_LON, uLat, uLon);
+          const distM = Math.round(dist);
+
+          if (dist <= STORE_RADIUS) {
+            document.getElementById('submit_user_lat').value = uLat;
+            document.getElementById('submit_user_lon').value = uLon;
+            isSubmitVerified = true;
+            submitFormEl.submit();
+          } else {
+            submitBtnEl.disabled = false;
+            submitBtnEl.innerHTML = origHtml;
+            if (window.showLocationAlert) {
+              window.showLocationAlert({
+                title: "Cannot Submit Outside Store",
+                storeName: STORE_NAME,
+                allowedRadius: STORE_RADIUS,
+                message: `You cannot submit or close this checklist from outside the store. You must be physically at the store (within ${STORE_RADIUS}m) to submit this report.`,
+              });
+            }
+          }
+        },
+        function (err) {
+          submitBtnEl.disabled = false;
+          submitBtnEl.innerHTML = origHtml;
+          let errMsg = "Unable to retrieve your current location. Please allow GPS access to submit this report.";
+          if (err.code === 1) {
+            errMsg = "Location permission was denied. You must allow GPS access to submit this report.";
+          }
+          handleGeoError(errMsg, false);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+  }
 })();
 </script>
 {% endblock %}

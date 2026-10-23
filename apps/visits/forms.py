@@ -75,6 +75,14 @@ class StartVisitForm(forms.Form):
         choices=AuditType.choices,
         widget=forms.Select(attrs={"class": "form-select"}),
     )
+    user_latitude = forms.DecimalField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_user_latitude"}),
+    )
+    user_longitude = forms.DecimalField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_user_longitude"}),
+    )
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -229,6 +237,27 @@ class StartVisitForm(forms.Form):
                 self.add_error("gh_role", f"No active template found for '{g_role}'.")
                 return cleaned_data
             cleaned_data["template"] = template
+
+        # Geofence validation: user must be physically at the store location
+        store = cleaned_data.get("store")
+        user_lat = cleaned_data.get("user_latitude")
+        user_lon = cleaned_data.get("user_longitude")
+        is_admin = getattr(self.user, "is_admin_role", False) if self.user else False
+
+        if store:
+            from apps.core.geo import verify_user_at_store
+            is_valid, error_msg, dist = verify_user_at_store(
+                store=store,
+                user_latitude=user_lat,
+                user_longitude=user_lon,
+                is_admin_bypass=is_admin,
+            )
+            if not is_valid:
+                self.add_error("store", error_msg)
+            else:
+                cleaned_data["started_latitude"] = user_lat
+                cleaned_data["started_longitude"] = user_lon
+                cleaned_data["started_distance_meters"] = dist
 
         return cleaned_data
 

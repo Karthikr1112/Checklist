@@ -9,6 +9,12 @@ class Store(BaseModel):
     name = models.CharField(max_length=150)
     city = models.CharField(max_length=80)
     region = models.CharField(max_length=80, blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, help_text="GPS Latitude (e.g. 8.479712)")
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, help_text="GPS Longitude (e.g. 76.948793)")
+    geofence_radius_meters = models.PositiveIntegerField(
+        default=250,
+        help_text="Allowed radius in meters for users to start visits (default: 250m)."
+    )
     is_active = models.BooleanField(default=True)
 
     cluster_manager = models.ForeignKey(

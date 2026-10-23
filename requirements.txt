@@ -28,3 +28,6 @@ gunicorn>=22.0,<24.0
 celery>=5.4,<6.0
 redis>=5.0,<6.0
 
+# Excel Export
+openpyxl>=3.1,<4.0
+

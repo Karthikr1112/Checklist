@@ -43,7 +43,14 @@ def resolve_template_for_user(user) -> ChecklistTemplate | None:
 
 
 @transaction.atomic
-def start_visit_from_plan(*, plan: VisitPlan, user) -> VisitPlan:
+def start_visit_from_plan(
+    *,
+    plan: VisitPlan,
+    user,
+    started_latitude=None,
+    started_longitude=None,
+    started_distance_meters=None,
+) -> VisitPlan:
     """Create a Visit linked to this plan and flip status to CHECKED_IN."""
     if plan.visit_id:
         return plan
@@ -56,6 +63,9 @@ def start_visit_from_plan(*, plan: VisitPlan, user) -> VisitPlan:
         cluster_manager=plan.cluster_manager,
         visit_date=plan.planned_date,
         audit_type=plan.audit_type,
+        started_latitude=started_latitude,
+        started_longitude=started_longitude,
+        started_distance_meters=started_distance_meters,
     )
     plan.visit = visit
     plan.status = PlanStatus.CHECKED_IN

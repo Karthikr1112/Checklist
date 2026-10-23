@@ -1,3 +1,4 @@
+import json
 import uuid
 
 from django.contrib import messages
@@ -159,6 +160,9 @@ def visit_start(request):
                 cluster_manager=request.user,
                 visit_date=form.cleaned_data["visit_date"],
                 audit_type=form.cleaned_data["audit_type"],
+                started_latitude=form.cleaned_data.get("started_latitude"),
+                started_longitude=form.cleaned_data.get("started_longitude"),
+                started_distance_meters=form.cleaned_data.get("started_distance_meters"),
             )
             log_event(request, Action.VISIT_STARTED, visit, label=_visit_label(visit),
                       details=f"{visit.template.name} · {visit.get_audit_type_display()}")
@@ -166,7 +170,25 @@ def visit_start(request):
             return redirect("visits:visit_fill", pk=visit.pk)
     else:
         form = StartVisitForm(user=request.user)
-    return render(request, "visits/visit_start.html", {"form": form})
+
+    stores_geo = {
+        str(s.pk): {
+            "code": s.code,
+            "name": s.name,
+            "lat": float(s.latitude) if s.latitude is not None else None,
+            "lon": float(s.longitude) if s.longitude is not None else None,
+            "radius": s.geofence_radius_meters or 250,
+        }
+        for s in form.fields["store"].queryset
+    }
+    return render(
+        request,
+        "visits/visit_start.html",
+        {
+            "form": form,
+            "stores_geo_json": json.dumps(stores_geo),
+        },
+    )
 
 
 @login_required
@@ -216,6 +238,26 @@ def response_save(request, response_pk):
 
     # Read these before building the form: validating it updates `response` in place.
     before = _answer_snapshot(response)
+
+    user_lat_str = request.POST.get("user_latitude", "").strip()
+    user_lon_str = request.POST.get("user_longitude", "").strip()
+    if not request.user.is_admin_role and response.visit.store.latitude is not None and response.visit.store.longitude is not None:
+        if user_lat_str and user_lon_str:
+            try:
+                from apps.core.geo import verify_user_at_store
+                is_valid, err_msg, _ = verify_user_at_store(
+                    store=response.visit.store,
+                    user_latitude=Decimal(user_lat_str),
+                    user_longitude=Decimal(user_lon_str),
+                    is_admin_bypass=False,
+                )
+                if not is_valid:
+                    if is_ajax:
+                        return JsonResponse({"ok": False, "error": err_msg, "location_error": True}, status=403)
+                    messages.error(request, err_msg)
+                    return redirect("visits:visit_fill", pk=response.visit_id)
+            except Exception:
+                pass
 
     form = VisitResponseForm(request.POST, instance=response)
     if form.is_valid():
@@ -325,6 +367,22 @@ def visit_submit(request, pk):
     if not _ensure_can_edit(request.user, visit):
         return HttpResponseForbidden()
     if request.method == "POST":
+        raw_lat = request.POST.get("user_latitude", "").strip()
+        raw_lon = request.POST.get("user_longitude", "").strip()
+        user_lat = Decimal(raw_lat) if raw_lat else None
+        user_lon = Decimal(raw_lon) if raw_lon else None
+
+        from apps.core.geo import verify_user_at_store
+        is_valid, error_msg, dist = verify_user_at_store(
+            store=visit.store,
+            user_latitude=user_lat,
+            user_longitude=user_lon,
+            is_admin_bypass=request.user.is_admin_role,
+        )
+        if not is_valid:
+            messages.error(request, error_msg)
+            return redirect("visits:visit_fill", pk=visit.pk)
+
         submit_visit(visit)
         visit.refresh_from_db()
         log_event(request, Action.VISIT_SUBMITTED, visit, label=_visit_label(visit),
