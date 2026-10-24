@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -143,6 +144,7 @@ def calendar_view(request):
                 Role.MARKETING_TEAM,
                 Role.VM_TEAM,
                 Role.GROCERY_HOME,
+                Role.STORE_MANAGER,
             ],
         ).order_by("employee_id", "full_name")
         can_filter_users = True
@@ -205,15 +207,21 @@ def plan_create(request):
     if request.method == "POST":
         form = VisitPlanForm(request.POST, user=request.user)
         if form.is_valid():
-            plan = form.save(commit=False)
-            plan.created_by = request.user
-            if not request.user.is_admin_role:
-                plan.cluster_manager = request.user
-            plan.save()
-            log_event(request, Action.PLAN_CREATED, plan, label=_plan_label(plan),
-                      details=f"{plan.start_time:%H:%M}-{plan.end_time:%H:%M} · for {plan.cluster_manager.employee_label}")
-            messages.success(request, "Visit planned.")
-            return redirect("schedule:calendar")
+            try:
+                plan = form.save(commit=False)
+                plan.created_by = request.user
+                if not request.user.is_admin_role:
+                    plan.cluster_manager = request.user
+                plan.save()
+                log_event(request, Action.PLAN_CREATED, plan, label=_plan_label(plan),
+                          details=f"{plan.start_time:%H:%M}-{plan.end_time:%H:%M} · for {plan.cluster_manager.employee_label}")
+                messages.success(request, "Visit planned.")
+                return redirect("schedule:calendar")
+            except IntegrityError:
+                form.add_error(
+                    "start_time",
+                    "A visit plan is already scheduled for this user on this date at this start time. Please choose a different start time.",
+                )
     else:
         form = VisitPlanForm(initial=initial, user=request.user)
     return render(request, "schedule/plan_form.html", {"form": form, "title": "New Plan"})
@@ -228,16 +236,22 @@ def plan_edit(request, pk):
         before = _plan_snapshot(plan)
         form = VisitPlanForm(request.POST, instance=plan, user=request.user)
         if form.is_valid():
-            plan = form.save()
-            changes = diff(before, _plan_snapshot(plan))
-            edit_reason = form.cleaned_data.get("edit_reason", "").strip()
-            details = f"Reason: {edit_reason}"
-            if changes:
-                details += " · Changed: " + ", ".join(changes)
-            log_event(request, Action.PLAN_UPDATED, plan, label=_plan_label(plan),
-                      details=details, changes=changes)
-            messages.success(request, "Plan updated.")
-            return redirect("schedule:plan_detail", pk=plan.pk)
+            try:
+                plan = form.save()
+                changes = diff(before, _plan_snapshot(plan))
+                edit_reason = form.cleaned_data.get("edit_reason", "").strip()
+                details = f"Reason: {edit_reason}"
+                if changes:
+                    details += " · Changed: " + ", ".join(changes)
+                log_event(request, Action.PLAN_UPDATED, plan, label=_plan_label(plan),
+                          details=details, changes=changes)
+                messages.success(request, "Plan updated.")
+                return redirect("schedule:plan_detail", pk=plan.pk)
+            except IntegrityError:
+                form.add_error(
+                    "start_time",
+                    "A visit plan is already scheduled for this user on this date at this start time. Please choose a different start time.",
+                )
     else:
         form = VisitPlanForm(instance=plan, user=request.user)
     return render(request, "schedule/plan_form.html", {"form": form, "title": "Edit Plan", "plan": plan})

@@ -27,5 +27,5 @@ def plans_visible_to(user):
     if user.role in (Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME):
         return qs.filter(cluster_manager=user)
     if user.role == Role.STORE_MANAGER:
-        return qs.filter(store__in=stores_visible_to(user))
+        return qs.filter(Q(cluster_manager=user) | Q(store__in=stores_visible_to(user)))
     return qs.filter(Q(cluster_manager=user) | Q(store__in=stores_visible_to(user)))

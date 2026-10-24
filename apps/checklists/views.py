@@ -25,6 +25,8 @@ def template_list(request):
             templates = templates.filter(audience=ChecklistTemplate.Audience.VM_TEAM)
         elif user.is_grocery_home:
             templates = templates.filter(audience=ChecklistTemplate.Audience.GROCERY_HOME)
+        elif user.is_store_manager:
+            templates = templates.filter(audience=ChecklistTemplate.Audience.STORE_MANAGER)
         else:
             templates = templates.filter(audience=ChecklistTemplate.Audience.CLUSTER_MANAGER)
     return render(request, "checklists/template_list.html", {"templates": templates})
@@ -43,6 +45,8 @@ def template_detail(request, pk):
             qs = qs.filter(audience=ChecklistTemplate.Audience.VM_TEAM)
         elif user.is_grocery_home:
             qs = qs.filter(audience=ChecklistTemplate.Audience.GROCERY_HOME)
+        elif user.is_store_manager:
+            qs = qs.filter(audience=ChecklistTemplate.Audience.STORE_MANAGER)
         else:
             qs = qs.filter(audience=ChecklistTemplate.Audience.CLUSTER_MANAGER)
     template = get_object_or_404(qs, pk=pk)

@@ -212,3 +212,19 @@ class ScheduleExportTests(TestCase):
         self.assertIsNotNone(self.plan.visit)
         self.assertIsNone(self.plan.visit.started_latitude)
         self.assertIsNone(self.plan.visit.started_longitude)
+
+    def test_duplicate_plan_start_time_validation(self):
+        url = reverse("schedule:plan_create")
+        data = {
+            "cluster_manager": str(self.user.pk),
+            "store": str(self.store.pk),
+            "planned_date": "2026-10-25",
+            "start_time": "09:30",
+            "end_time": "11:00",
+            "audit_type": AuditType.FULL,
+            "status": PlanStatus.PLANNED,
+        }
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "already scheduled")
+

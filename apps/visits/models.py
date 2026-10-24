@@ -108,6 +108,13 @@ class Visit(BaseModel):
             or getattr(self.cluster_manager, "role", "") == "GROCERY_HOME"
         )
 
+    @property
+    def is_store_manager_checklist(self) -> bool:
+        return (
+            self.template.audience == ChecklistTemplate.Audience.STORE_MANAGER
+            or getattr(self.cluster_manager, "role", "") == "STORE_MANAGER"
+        )
+
     def can_be_approved_by(self, user) -> bool:
         if not user or not user.is_authenticated or not getattr(user, "is_approved", True):
             return False
@@ -119,6 +126,9 @@ class Visit(BaseModel):
             return True
         if getattr(user, "is_business_head", False) and self.is_grocery_home_checklist:
             return True
+        if getattr(user, "is_cluster_manager", False) and self.is_store_manager_checklist:
+            from apps.stores.selectors import stores_visible_to
+            return self.store in stores_visible_to(user)
         return False
 
 

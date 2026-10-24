@@ -349,15 +349,6 @@
         <option value="MISSED">Missed</option>
         <option value="CANCELLED">Cancelled</option>
       </select>
-      <div class="flex gap-1" style="align-items:center;">
-        <span class="muted" style="font-size:12px;font-weight:500;">From:</span>
-        <input type="date" id="dateFromFilter" class="form-control form-control-sm" style="width:135px;" title="From Planned Date" />
-      </div>
-      <div class="flex gap-1" style="align-items:center;">
-        <span class="muted" style="font-size:12px;font-weight:500;">To:</span>
-        <input type="date" id="dateToFilter" class="form-control form-control-sm" style="width:135px;" title="To Planned Date" />
-      </div>
-      <button type="button" id="clearDateBtn" class="btn btn-ghost btn-sm" style="font-size:12px;padding:4px 8px;display:none" onclick="clearDateFilters()" title="Clear date filter"><i class="bi bi-x"></i> Clear</button>
     </div>
     <div class="legend">
       <span><span class="dot" style="background:#6366f1"></span>Planned</span>
@@ -443,9 +434,6 @@
   const calEl = document.getElementById('calendar');
   const cmFilter = document.getElementById('cmFilter');
   const statusFilter = document.getElementById('statusFilter');
-  const dateFromFilter = document.getElementById('dateFromFilter');
-  const dateToFilter = document.getElementById('dateToFilter');
-  const clearDateBtn = document.getElementById('clearDateBtn');
   const modal = document.getElementById('planModal');
   const isAdmin = {{ is_admin|yesno:"true,false" }};
 
@@ -485,8 +473,6 @@
       const params = new URLSearchParams({ start: info.startStr, end: info.endStr });
       if (cmFilter && cmFilter.value) params.set('cm', cmFilter.value);
       if (statusFilter.value) params.set('status', statusFilter.value);
-      if (dateFromFilter && dateFromFilter.value) params.set('date_from', dateFromFilter.value);
-      if (dateToFilter && dateToFilter.value) params.set('date_to', dateToFilter.value);
       fetch('{% url "schedule:api_events" %}?' + params.toString())
         .then(r => r.json()).then(success).catch(failure);
     },
@@ -637,26 +623,6 @@
 
   if (cmFilter) cmFilter.addEventListener('change', () => cal.refetchEvents());
   statusFilter.addEventListener('change', () => cal.refetchEvents());
-  if (dateFromFilter) {
-    dateFromFilter.addEventListener('change', () => {
-      if (clearDateBtn) clearDateBtn.style.display = (dateFromFilter.value || dateToFilter.value) ? '' : 'none';
-      if (dateFromFilter.value) cal.gotoDate(dateFromFilter.value);
-      cal.refetchEvents();
-    });
-  }
-  if (dateToFilter) {
-    dateToFilter.addEventListener('change', () => {
-      if (clearDateBtn) clearDateBtn.style.display = (dateFromFilter.value || dateToFilter.value) ? '' : 'none';
-      cal.refetchEvents();
-    });
-  }
-
-  window.clearDateFilters = function () {
-    if (dateFromFilter) dateFromFilter.value = '';
-    if (dateToFilter) dateToFilter.value = '';
-    if (clearDateBtn) clearDateBtn.style.display = 'none';
-    cal.refetchEvents();
-  };
 
   function reschedule(info) {
     const id = info.event.id;
@@ -922,14 +888,6 @@
     if (!menu) return;
     const isOpen = menu.classList.contains('show');
     if (!isOpen) {
-      const exportFrom = document.getElementById('exportDateFrom');
-      const exportTo = document.getElementById('exportDateTo');
-      if (exportFrom && !exportFrom.value && dateFromFilter && dateFromFilter.value) {
-        exportFrom.value = dateFromFilter.value;
-      }
-      if (exportTo && !exportTo.value && dateToFilter && dateToFilter.value) {
-        exportTo.value = dateToFilter.value;
-      }
       window.updateExportFilterStatus();
       menu.classList.add('show');
     } else {
@@ -961,8 +919,8 @@
 
     const exportFrom = document.getElementById('exportDateFrom');
     const exportTo = document.getElementById('exportDateTo');
-    const fromVal = (exportFrom && exportFrom.value) ? exportFrom.value : (dateFromFilter ? dateFromFilter.value : '');
-    const toVal = (exportTo && exportTo.value) ? exportTo.value : (dateToFilter ? dateToFilter.value : '');
+    const fromVal = exportFrom ? exportFrom.value : '';
+    const toVal = exportTo ? exportTo.value : '';
 
     if (fromVal) {
       params.set('date_from', fromVal);

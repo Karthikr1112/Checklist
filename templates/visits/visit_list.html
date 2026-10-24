@@ -7,7 +7,7 @@
     <h1>Visits</h1>
     <p>All daily store-visit reports.</p>
   </div>
-  {% if user.is_admin_role or user.is_cluster_manager or user.is_inventory_team or user.is_marketing_team or user.is_vm_team or user.is_grocery_home %}
+  {% if user.is_admin_role or user.is_cluster_manager or user.is_inventory_team or user.is_marketing_team or user.is_vm_team or user.is_grocery_home or user.is_store_manager %}
     <a class="btn btn-primary" href="{% url 'visits:visit_start' %}"><i class="bi bi-plus-lg"></i> Start Visit</a>
   {% endif %}
 </div>

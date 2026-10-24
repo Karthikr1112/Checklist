@@ -68,6 +68,8 @@
                 Grocery &amp; Home — {{ user.gh_role }}
               {% elif user.is_inventory_team %}
                 Inventory Team Daily Checklist
+              {% elif user.is_store_manager %}
+                Store Manager Daily Store Walk Checklist
               {% else %}
                 Cluster Manager Store Visit
               {% endif %}

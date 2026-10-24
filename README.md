@@ -55,6 +55,7 @@ python manage.py seed_inventory_checklist    # Inventory Team checklist
 python manage.py seed_marketing_checklist    # Marketing Team checklists
 python manage.py seed_vm_checklist           # VM Team checklists (VM Manager, VM Executive)
 python manage.py seed_grocery_home_checklist # Grocery & Home checklists (Category Head - Grocery / Home, Business Head, Grocery & Home)
+python manage.py seed_store_manager_checklist # Store Manager daily store walk checklist
 python manage.py createsuperuser
 
 # 6. Run
@@ -66,7 +67,7 @@ Open http://127.0.0.1:8000/ — log in with the superuser you just created.
 ## Workflow
 
 1. **Admin** adds users (Cluster Managers, Store Managers, Inventory Team, Marketing Team) and Stores, assigning personnel to each.
-2. **Cluster / Inventory / Marketing Manager** clicks **Start Visit**, picks a Store + Checklist Template + Audit Type + Date.
+2. **Cluster / Store / Inventory / Marketing Manager** clicks **Start Visit**, picks a Store + Checklist Template + Audit Type + Date.
 3. App pre-creates a `VisitResponse` for every question in the chosen checklist template.
 4. User fills Yes/No/NA, observations, attaches photos, raises Action items.
 5. User submits the visit → Admin reviews and **Approves**.
@@ -81,7 +82,7 @@ Open http://127.0.0.1:8000/ — log in with the superuser you just created.
 | `CLUSTER_MANAGER`| Start / fill / submit visits for cluster stores assigned to them    |
 | `INVENTORY_TEAM` | Start / fill / submit daily inventory audits for their stores       |
 | `MARKETING_TEAM` | Start / fill / submit visual & marketing audits for their stores    |
-| `STORE_MANAGER`  | View visits + actions for their store                               |
+| `STORE_MANAGER`  | Start / fill / submit daily store walk audits + view store visits   |
 | `OWNER`          | Sees and closes assigned actions                                    |
 
 ## Production checklist

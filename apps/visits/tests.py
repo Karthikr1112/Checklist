@@ -118,3 +118,51 @@ class GeofenceVerificationTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data["store"], self.store)
         self.assertIsNotNone(form.cleaned_data.get("started_latitude"))
+
+    def test_store_manager_start_visit_and_visibility(self):
+        sm_template = ChecklistTemplate.objects.create(
+            name="Store Manager Daily Store Walk Checklist",
+            audience=ChecklistTemplate.Audience.STORE_MANAGER,
+            is_active=True,
+            version=1,
+        )
+        sm_user = User.objects.create_user(
+            email="sm@example.com",
+            password="pass",
+            role=Role.STORE_MANAGER,
+        )
+        self.store.store_manager = sm_user
+        self.store.save()
+
+        # Check form defaults
+        form = StartVisitForm(user=sm_user)
+        self.assertEqual(form.fields["department"].initial, "STORE_MANAGER")
+
+        # Submit form as SM at the store
+        data = {
+            "store": str(self.store.pk),
+            "department": "STORE_MANAGER",
+            "visit_date": str(timezone.localdate()),
+            "audit_type": AuditType.FULL,
+            "user_latitude": "8.479715",
+            "user_longitude": "76.948790",
+        }
+        form = StartVisitForm(data=data, user=sm_user)
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["template"], sm_template)
+
+        # Check visit visibility
+        from apps.visits.selectors import visits_visible_to
+        from apps.visits.services import start_visit
+
+        visit = start_visit(
+            store=self.store,
+            template=sm_template,
+            cluster_manager=sm_user,
+            visit_date=timezone.localdate(),
+            audit_type=AuditType.FULL,
+        )
+        visible = visits_visible_to(sm_user)
+        self.assertTrue(visible.filter(pk=visit.pk).exists())
+        self.assertTrue(visit.is_store_manager_checklist)
+

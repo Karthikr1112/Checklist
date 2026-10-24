@@ -32,11 +32,12 @@ class VisitPlanForm(forms.ModelForm):
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.user = user
         self.fields["audit_type"].choices = AuditType.choices
         self.fields["status"].choices = PlanStatus.choices
         self.fields["cluster_manager"].queryset = User.objects.filter(
             is_active=True,
-            role__in=[Role.CLUSTER_MANAGER, Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME],
+            role__in=[Role.CLUSTER_MANAGER, Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME, Role.STORE_MANAGER],
         )
         self.fields["cluster_manager"].label_from_instance = lambda u: u.employee_label
         self.fields["store"].queryset = Store.objects.filter(is_active=True)
@@ -71,6 +72,28 @@ class VisitPlanForm(forms.ModelForm):
         cleaned = super().clean()
         start = cleaned.get("start_time")
         end = cleaned.get("end_time")
+        date = cleaned.get("planned_date")
+        cm = cleaned.get("cluster_manager")
+
+        # Fallback to self.user if user is non-admin and cluster_manager is omitted/hidden
+        if not cm and getattr(self, "user", None) and not getattr(self.user, "is_admin_role", False):
+            cm = self.user
+            cleaned["cluster_manager"] = cm
+
         if start and end and end <= start:
             raise forms.ValidationError("End time must be after start time.")
+
+        # Check for duplicate start time on the same date for this user
+        if cm and date and start:
+            qs = VisitPlan.objects.filter(cluster_manager=cm, planned_date=date, start_time=start)
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                time_str = start.strftime("%I:%M %p") if hasattr(start, "strftime") else str(start)
+                date_str = date.strftime("%d %b %Y") if hasattr(date, "strftime") else str(date)
+                cm_label = getattr(cm, "employee_label", str(cm))
+                raise forms.ValidationError(
+                    f"A visit plan is already scheduled for {cm_label} on {date_str} starting at {time_str}. Please choose a different start time or date."
+                )
+
         return cleaned

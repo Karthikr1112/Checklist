@@ -34,6 +34,8 @@ def templates_for_user(user) -> list[ChecklistTemplate]:
             if matches:
                 return matches
         return list(qs.filter(audience=ChecklistTemplate.Audience.GROCERY_HOME))
+    if user.is_store_manager:
+        return list(qs.filter(audience=ChecklistTemplate.Audience.STORE_MANAGER))
     return list(qs.filter(audience=ChecklistTemplate.Audience.CLUSTER_MANAGER))
 
 

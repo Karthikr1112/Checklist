@@ -1,3 +1,4 @@
+from decimal import Decimal, InvalidOperation
 import json
 import uuid
 
@@ -149,7 +150,7 @@ def visit_list(request):
     )
 
 
-@role_required(Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER, Role.CLUSTER_MANAGER, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME)
+@role_required(Role.ADMIN, Role.COO, Role.PROFESSIONAL_USER, Role.CLUSTER_MANAGER, Role.STORE_MANAGER, Role.INVENTORY_TEAM, Role.MARKETING_TEAM, Role.VM_TEAM, Role.GROCERY_HOME)
 def visit_start(request):
     if request.method == "POST":
         form = StartVisitForm(request.POST, user=request.user)
@@ -369,8 +370,18 @@ def visit_submit(request, pk):
     if request.method == "POST":
         raw_lat = request.POST.get("user_latitude", "").strip()
         raw_lon = request.POST.get("user_longitude", "").strip()
-        user_lat = Decimal(raw_lat) if raw_lat else None
-        user_lon = Decimal(raw_lon) if raw_lon else None
+        user_lat = None
+        user_lon = None
+        if raw_lat:
+            try:
+                user_lat = Decimal(raw_lat)
+            except (InvalidOperation, ValueError):
+                user_lat = None
+        if raw_lon:
+            try:
+                user_lon = Decimal(raw_lon)
+            except (InvalidOperation, ValueError):
+                user_lon = None
 
         from apps.core.geo import verify_user_at_store
         is_valid, error_msg, dist = verify_user_at_store(

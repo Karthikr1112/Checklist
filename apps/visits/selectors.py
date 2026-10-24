@@ -45,6 +45,6 @@ def visits_visible_to(user: User) -> QuerySet[Visit]:
     if user.is_inventory_team:
         return qs.filter(cluster_manager=user)
     if user.is_store_manager:
-        # Every team's audits at their assigned stores.
-        return qs.filter(store__in=stores_visible_to(user))
+        # Their own audits plus every team's audits at their assigned stores.
+        return qs.filter(Q(cluster_manager=user) | Q(store__in=stores_visible_to(user)))
     return qs.none()

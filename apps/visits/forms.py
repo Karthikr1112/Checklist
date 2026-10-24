@@ -15,6 +15,7 @@ class StartVisitForm(forms.Form):
         ("MARKETING_TEAM", "Marketing Team"),
         ("VM_TEAM", "VM Team"),
         ("GROCERY_HOME", "Grocery & Home"),
+        ("STORE_MANAGER", "Store Manager Daily Store Walk Checklist"),
     ]
 
     MARKETING_ROLE_CHOICES = [
@@ -131,6 +132,15 @@ class StartVisitForm(forms.Form):
                 if getattr(user, "gh_role", ""):
                     self.fields["gh_role"].initial = user.gh_role
                     self.fields["gh_role"].widget = forms.HiddenInput()
+            elif user.is_store_manager:
+                self.fields["department"].choices = [
+                    ("STORE_MANAGER", "Store Manager Daily Store Walk Checklist")
+                ]
+                self.fields["department"].initial = "STORE_MANAGER"
+                self.fields["department"].widget = forms.HiddenInput()
+                self.fields["marketing_role"].widget = forms.HiddenInput()
+                self.fields["vm_role"].widget = forms.HiddenInput()
+                self.fields["gh_role"].widget = forms.HiddenInput()
             else:
                 self.fields["department"].choices = [
                     ("CLUSTER_MANAGER", "Cluster Manager Store Visit")
@@ -235,6 +245,16 @@ class StartVisitForm(forms.Form):
             ).order_by("-version").first()
             if not template:
                 self.add_error("gh_role", f"No active template found for '{g_role}'.")
+                return cleaned_data
+            cleaned_data["template"] = template
+
+        elif dept == "STORE_MANAGER":
+            template = ChecklistTemplate.objects.filter(
+                is_active=True,
+                audience=ChecklistTemplate.Audience.STORE_MANAGER,
+            ).order_by("-version").first()
+            if not template:
+                self.add_error("department", "No active template found for Store Manager.")
                 return cleaned_data
             cleaned_data["template"] = template
 
