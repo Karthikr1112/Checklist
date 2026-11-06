@@ -11,9 +11,10 @@ from .models import Store
 from .selectors import stores_visible_to
 
 
+
 @login_required
 def store_list(request):
-    stores = stores_visible_to(request.user)
+    stores = stores_visible_to(request.user).prefetch_related("assigned_users")
     return render(request, "stores/store_list.html", {"stores": stores})
 
 

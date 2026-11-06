@@ -166,3 +166,17 @@ class GeofenceVerificationTests(TestCase):
         self.assertTrue(visible.filter(pk=visit.pk).exists())
         self.assertTrue(visit.is_store_manager_checklist)
 
+        # Same store's Cluster Manager CAN approve
+        self.assertTrue(visit.can_be_approved_by(self.cm_user))
+
+        # Store Manager CANNOT approve their own checklist
+        self.assertFalse(visit.can_be_approved_by(sm_user))
+
+        # Cluster Manager for a different store CANNOT approve
+        other_cm = User.objects.create_user(
+            email="other_cm@example.com",
+            password="pass",
+            role=Role.CLUSTER_MANAGER,
+        )
+        self.assertFalse(visit.can_be_approved_by(other_cm))
+

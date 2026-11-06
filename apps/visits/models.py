@@ -128,7 +128,7 @@ class Visit(BaseModel):
             return True
         if getattr(user, "is_cluster_manager", False) and self.is_store_manager_checklist:
             from apps.stores.selectors import stores_visible_to
-            return self.store in stores_visible_to(user)
+            return stores_visible_to(user).filter(pk=self.store_id).exists()
         return False
 
 

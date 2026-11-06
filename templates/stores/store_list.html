@@ -31,7 +31,7 @@
           <td>{{ s.region|default:'—' }}</td>
           <td>
             {% with cms=s.assigned_cluster_managers %}
-              {% if cms.exists %}
+              {% if cms %}
                 {% for cm in cms %}{{ cm.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
               {% else %}
                 {{ s.cluster_manager.full_name|default:'—' }}
@@ -40,7 +40,7 @@
           </td>
           <td>
             {% with sms=s.assigned_store_managers %}
-              {% if sms.exists %}
+              {% if sms %}
                 {% for sm in sms %}{{ sm.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
               {% else %}
                 {{ s.store_manager.full_name|default:'—' }}
@@ -49,7 +49,7 @@
           </td>
           <td>
             {% with invs=s.assigned_inventory %}
-              {% if invs.exists %}
+              {% if invs %}
                 {% for inv in invs %}{{ inv.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
               {% else %}
                 {{ s.inventory_team.full_name|default:'—' }}
@@ -58,7 +58,7 @@
           </td>
           <td>
             {% with mkts=s.assigned_marketing %}
-              {% if mkts.exists %}
+              {% if mkts %}
                 {% for mkt in mkts %}{{ mkt.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
               {% else %}
                 {{ s.marketing_team.full_name|default:'—' }}
@@ -67,7 +67,7 @@
           </td>
           <td>
             {% with vms=s.assigned_vm %}
-              {% if vms.exists %}
+              {% if vms %}
                 {% for vm in vms %}{{ vm.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
               {% else %}
                 —
@@ -76,7 +76,7 @@
           </td>
           <td>
             {% with ghs=s.assigned_grocery_home %}
-              {% if ghs.exists %}
+              {% if ghs %}
                 {% for gh in ghs %}{{ gh.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
               {% else %}
                 —

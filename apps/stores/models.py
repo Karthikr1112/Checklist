@@ -57,26 +57,31 @@ class Store(BaseModel):
     def __str__(self) -> str:
         return f"{self.code} — {self.name}"
 
+    def _assigned_for_role(self, role: str):
+        if hasattr(self, "_prefetched_objects_cache") and "assigned_users" in self._prefetched_objects_cache:
+            return [u for u in self.assigned_users.all() if u.role == role and u.is_active]
+        return list(self.assigned_users.filter(role=role, is_active=True))
+
     @property
     def assigned_cluster_managers(self):
-        return self.assigned_users.filter(role="CLUSTER_MANAGER", is_active=True)
+        return self._assigned_for_role("CLUSTER_MANAGER")
 
     @property
     def assigned_store_managers(self):
-        return self.assigned_users.filter(role="STORE_MANAGER", is_active=True)
+        return self._assigned_for_role("STORE_MANAGER")
 
     @property
     def assigned_inventory(self):
-        return self.assigned_users.filter(role="INVENTORY_TEAM", is_active=True)
+        return self._assigned_for_role("INVENTORY_TEAM")
 
     @property
     def assigned_marketing(self):
-        return self.assigned_users.filter(role="MARKETING_TEAM", is_active=True)
+        return self._assigned_for_role("MARKETING_TEAM")
 
     @property
     def assigned_vm(self):
-        return self.assigned_users.filter(role="VM_TEAM", is_active=True)
+        return self._assigned_for_role("VM_TEAM")
 
     @property
     def assigned_grocery_home(self):
-        return self.assigned_users.filter(role="GROCERY_HOME", is_active=True)
+        return self._assigned_for_role("GROCERY_HOME")

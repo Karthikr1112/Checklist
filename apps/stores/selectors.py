@@ -10,18 +10,24 @@ def stores_visible_to(user: User) -> QuerySet[Store]:
     if not user or not user.is_authenticated:
         return Store.objects.none()
 
-    qs = Store.objects.filter(is_active=True).select_related("cluster_manager", "store_manager")
+    qs = Store.objects.filter(is_active=True).select_related(
+        "cluster_manager", "store_manager", "inventory_team", "marketing_team"
+    )
     if user.is_admin_role or getattr(user, "all_stores_access", False):
         return qs
 
     if (user.is_marketing_team and getattr(user, "is_marketing_head", False)) or getattr(user, "is_vm_manager", False) or getattr(user, "is_business_head", False):
-        assigned = user.assigned_stores.filter(is_active=True)
+        assigned = user.assigned_stores.filter(is_active=True).select_related(
+            "cluster_manager", "store_manager", "inventory_team", "marketing_team"
+        )
         if assigned.exists():
             return assigned
         return qs
 
     # Check Many-to-Many assigned stores
-    assigned = user.assigned_stores.filter(is_active=True)
+    assigned = user.assigned_stores.filter(is_active=True).select_related(
+        "cluster_manager", "store_manager", "inventory_team", "marketing_team"
+    )
     if assigned.exists():
         return assigned
 
